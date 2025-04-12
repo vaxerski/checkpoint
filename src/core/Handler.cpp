@@ -321,7 +321,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
                 response.headers().add(h);
             }
 
-            response.send(Pistache::Http::Code::Ok, resp.body());
+            response.send(resp.code(), resp.body());
         },
         [&](std::exception_ptr e) {
             try {
