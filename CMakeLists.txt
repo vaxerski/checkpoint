@@ -34,6 +34,8 @@ pkg_check_modules(deps IMPORTED_TARGET openssl sqlite3)
 target_include_directories(checkpoint
 PRIVATE
    "./subprojects/pistache/include"
+   "./subprojects/glaze/include"
+   "./subprojects/tinylates/include"
    "./subprojects/pistache/subprojects/cpp-httplib"
    "./subprojects/pistache/subprojects/hinnant-date/include"
 )
