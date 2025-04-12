@@ -128,7 +128,7 @@ void CDatabase::dropChallenge(const std::string& nonce) {
         return;
 
     const std::string CMD = fmt::format(R"#(
-DELETE FROM challenges WHERE token = "{}"
+DELETE FROM tokens WHERE token = "{}"
 )#",
                                         nonce);
 
