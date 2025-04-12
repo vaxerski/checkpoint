@@ -296,7 +296,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
         Debug::log(LOG, "Header in: {}: {}", h->name(), req.headers().getRaw(h->name()).value());
         builder.header(h);
     }
-    builder.timeout(std::chrono::milliseconds(10000));
+    builder.timeout(std::chrono::seconds(g_pConfig->m_config.proxy_timeout_sec));
 
     // TODO: implement streaming for git's large objects?
 
@@ -329,7 +329,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
             response.send(Pistache::Http::Code::Internal_Server_Error, "Internal Proxy Error");
         });
     Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
-    b.wait_for(std::chrono::seconds(10));
+    b.wait_for(std::chrono::seconds(g_pConfig->m_config.proxy_timeout_sec));
 
     client.shutdown();
 }

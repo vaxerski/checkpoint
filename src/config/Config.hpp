@@ -8,12 +8,13 @@ class CConfig {
     CConfig();
 
     struct SConfig {
-        int               port             = 3001;
-        std::string       forward_address  = "127.0.0.1:3000";
-        std::string       data_dir         = "";
-        std::string       html_dir         = "";
-        unsigned long int max_request_size = 10000000; // 10MB
-        bool              git_host         = false;
+        int               port              = 3001;
+        std::string       forward_address   = "127.0.0.1:3000";
+        std::string       data_dir          = "";
+        std::string       html_dir          = "";
+        unsigned long int max_request_size  = 10000000; // 10MB
+        bool              git_host          = false;
+        unsigned long int proxy_timeout_sec = 120; // 2 minutes
     } m_config;
 };
 

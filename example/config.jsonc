@@ -12,5 +12,8 @@
     "forward_address": "127.0.0.1:3000",
 
     // max request size of 10MB
-    "max_request_size": 10000000
+    "max_request_size": 10000000,
+
+    // Timeout of 2 minutes for the proxy requests
+    "proxy_timeout_sec": 120
 }
