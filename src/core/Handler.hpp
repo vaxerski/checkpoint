@@ -2,9 +2,17 @@
 
 #include <pistache/http.h>
 
+// Giga hack, but we need it cuz the API is quite awkward and incomplete
+#define private public
+#include <pistache/client.h>
+#undef private
+
 class CServerHandler : public Pistache::Http::Handler {
 
     HTTP_PROTOTYPE(CServerHandler)
+
+    void init();
+    void finish();
 
     void onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response);
 
@@ -25,4 +33,6 @@ class CServerHandler : public Pistache::Http::Handler {
         std::string token   = "";
         std::string error   = "";
     };
+
+    Pistache::Http::Experimental::Client* m_client = nullptr;
 };

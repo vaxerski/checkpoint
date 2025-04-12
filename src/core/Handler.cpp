@@ -13,9 +13,6 @@
 #include <random>
 #include <sstream>
 
-#define private public
-#include <pistache/client.h>
-#undef private
 #include <tinylates/tinylates.hpp>
 #include <fmt/format.h>
 #include <glaze/glaze.hpp>
@@ -86,6 +83,17 @@ static std::string sha256(const std::string& string) {
     }
 
     return ss.str();
+}
+
+void CServerHandler::init() {
+    m_client = new Pistache::Http::Experimental::Client();
+    m_client->init(Pistache::Http::Experimental::Client::options().threads(1).maxConnectionsPerHost(8));
+}
+
+void CServerHandler::finish() {
+    m_client->shutdown();
+    delete m_client;
+    m_client = nullptr;
 }
 
 void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response) {
@@ -274,13 +282,11 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
 }
 
 void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    Pistache::Http::Experimental::Client client;
-    client.init(Pistache::Http::Experimental::Client::options().threads(1).maxConnectionsPerHost(8));
     const std::string FORWARD_ADDR = g_pConfig->m_config.forward_address;
 
     Debug::log(LOG, "Method ({}): Forwarding to {}", (uint32_t)req.method(), FORWARD_ADDR + req.resource());
 
-    auto builder = client.prepareRequest(FORWARD_ADDR + req.resource(), req.method());
+    auto builder = m_client->prepareRequest(FORWARD_ADDR + req.resource(), req.method());
     builder.body(req.body());
     for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
         builder.cookie(*it);
@@ -330,6 +336,4 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
         });
     Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
     b.wait_for(std::chrono::seconds(g_pConfig->m_config.proxy_timeout_sec));
-
-    client.shutdown();
 }
