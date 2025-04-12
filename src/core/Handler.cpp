@@ -2,6 +2,7 @@
 #include "../headers/authorization.hpp"
 #include "../headers/cfHeader.hpp"
 #include "../headers/xforwardfor.hpp"
+#include "../headers/gitProtocolHeader.hpp"
 #include "../debug/log.hpp"
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
@@ -12,7 +13,9 @@
 #include <random>
 #include <sstream>
 
+#define private public
 #include <pistache/client.h>
+#undef private
 #include <tinylates/tinylates.hpp>
 #include <fmt/format.h>
 #include <glaze/glaze.hpp>
@@ -89,9 +92,11 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     const auto                                                 HEADERS = req.headers();
     std::shared_ptr<const Pistache::Http::Header::Host>        hostHeader;
     std::shared_ptr<const Pistache::Http::Header::ContentType> contentTypeHeader;
+    std::shared_ptr<const Pistache::Http::Header::UserAgent>   userAgentHeader;
     std::shared_ptr<const CFConnectingIPHeader>                cfHeader;
     std::shared_ptr<const XForwardedForHeader>                 xForwardedForHeader;
     std::shared_ptr<const AuthorizationHeader>                 authHeader;
+    std::shared_ptr<const GitProtocolHeader>                   gitProtocolHeader;
 
     try {
         hostHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::Host>(HEADERS.get("Host"));
@@ -125,6 +130,18 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         ; // silent ignore
     }
 
+    try {
+        userAgentHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::UserAgent>(HEADERS.get("User-Agent"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    try {
+        gitProtocolHeader = Pistache::Http::Header::header_cast<GitProtocolHeader>(HEADERS.get("Git-Protocol"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
     Debug::log(LOG, "Got request for: {}:{}{}", hostHeader->host(), hostHeader->port().toString(), req.resource());
     Debug::log(LOG, "Request author: IP {}", req.address().host());
     if (cfHeader)
@@ -132,12 +149,30 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     else
         Debug::log(WARN, "Connection does not come through CloudFlare");
 
+    if (userAgentHeader)
+        Debug::log(LOG, "UA: {}", userAgentHeader->agent());
+
     if (req.resource() == "/checkpoint/challenge") {
         if (req.method() == Pistache::Http::Method::Post)
             challengeSubmitted(req, response);
         else
             response.send(Pistache::Http::Code::Bad_Request, "Bad Request");
         return;
+    }
+
+    if (g_pConfig->m_config.git_host) {
+        // TODO: ratelimit and check this. This can be faked!
+        if (gitProtocolHeader && userAgentHeader) {
+            Debug::log(LOG, "Request looks like it is coming from git (UA + GP). Accepting.");
+
+            proxyPass(req, response);
+            return;
+        } else if (userAgentHeader->agent().starts_with("git/")) {
+            Debug::log(LOG, "Request looks like it is coming from git (UA git). Accepting.");
+
+            proxyPass(req, response);
+            return;
+        }
     }
 
     if (req.cookies().has("CheckpointToken")) {
@@ -243,89 +278,58 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
     client.init(Pistache::Http::Experimental::Client::options().threads(1).maxConnectionsPerHost(8));
     const std::string FORWARD_ADDR = g_pConfig->m_config.forward_address;
 
-    switch (req.method()) {
-            // there are some crazy semantics going on here, idk how to make this cleaner with less c+p
+    Debug::log(LOG, "Method ({}): Forwarding to {}", (uint32_t)req.method(), FORWARD_ADDR + req.resource());
 
-        case Pistache::Http::Method::Get: {
-            Debug::log(LOG, "Get: Forwarding to {}", FORWARD_ADDR + req.resource());
-            auto builder = client.get(FORWARD_ADDR + req.resource()).body(req.body());
-            for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
-                builder.cookie(*it);
-            }
-            builder.timeout(std::chrono::milliseconds(10000));
-
-            auto resp = builder.send();
-            resp.then([&](Pistache::Http::Response resp) { response.send(Pistache::Http::Code::Ok, resp.body()); },
-                      [&](std::exception_ptr e) { response.send(Pistache::Http::Code::Internal_Server_Error, "Internal Proxy Error"); });
-            Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
-            b.wait_for(std::chrono::seconds(10));
-            break;
-        }
-        case Pistache::Http::Method::Post: {
-            Debug::log(LOG, "Post: Forwarding to {}", FORWARD_ADDR + req.resource());
-            auto builder = client.post(FORWARD_ADDR + req.resource()).body(req.body());
-            for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
-                builder.cookie(*it);
-            }
-            builder.timeout(std::chrono::milliseconds(10000));
-
-            auto resp = builder.send();
-            resp.then([&](Pistache::Http::Response resp) { response.send(Pistache::Http::Code::Ok, resp.body()); },
-                      [&](std::exception_ptr e) { response.send(Pistache::Http::Code::Internal_Server_Error, "Internal Proxy Error"); });
-            Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
-            b.wait_for(std::chrono::seconds(10));
-            break;
-        }
-        case Pistache::Http::Method::Put: {
-            Debug::log(LOG, "Put: Forwarding to {}", FORWARD_ADDR + req.resource());
-            auto builder = client.put(FORWARD_ADDR + req.resource()).body(req.body());
-            for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
-                builder.cookie(*it);
-            }
-            builder.timeout(std::chrono::milliseconds(10000));
-
-            auto resp = builder.send();
-            resp.then([&](Pistache::Http::Response resp) { response.send(Pistache::Http::Code::Ok, resp.body()); },
-                      [&](std::exception_ptr e) { response.send(Pistache::Http::Code::Internal_Server_Error, "Internal Proxy Error"); });
-            Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
-            b.wait_for(std::chrono::seconds(10));
-            break;
-        }
-        case Pistache::Http::Method::Delete: {
-            Debug::log(LOG, "Delete: Forwarding to {}", FORWARD_ADDR + req.resource());
-            auto builder = client.del(FORWARD_ADDR + req.resource()).body(req.body());
-            for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
-                builder.cookie(*it);
-            }
-            builder.timeout(std::chrono::milliseconds(10000));
-
-            auto resp = builder.send();
-            resp.then([&](Pistache::Http::Response resp) { response.send(Pistache::Http::Code::Ok, resp.body()); },
-                      [&](std::exception_ptr e) { response.send(Pistache::Http::Code::Internal_Server_Error, "Internal Proxy Error"); });
-            Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
-            b.wait_for(std::chrono::seconds(10));
-            break;
-        }
-        case Pistache::Http::Method::Patch: {
-            Debug::log(LOG, "Patch: Forwarding to {}", FORWARD_ADDR + req.resource());
-            auto builder = client.patch(FORWARD_ADDR + req.resource()).body(req.body());
-            for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
-                builder.cookie(*it);
-            }
-            builder.timeout(std::chrono::milliseconds(10000));
-
-            auto resp = builder.send();
-            resp.then([&](Pistache::Http::Response resp) { response.send(Pistache::Http::Code::Ok, resp.body()); },
-                      [&](std::exception_ptr e) { response.send(Pistache::Http::Code::Internal_Server_Error, "Internal Proxy Error"); });
-            Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
-            b.wait_for(std::chrono::seconds(10));
-            break;
-        }
-
-        default: {
-            response.send(Pistache::Http::Code::Internal_Server_Error, "Invalid request type for proxy");
-        }
+    auto builder = client.prepareRequest(FORWARD_ADDR + req.resource(), req.method());
+    builder.body(req.body());
+    for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
+        builder.cookie(*it);
     }
+    const auto HEADERS = req.headers().list();
+    for (auto& h : HEADERS) {
+        // FIXME: why does this break e.g. gitea if we include it?
+        if (std::string_view{h->name()} == "Host") {
+            Debug::log(LOG, "Header in: {}: {} (DROPPED)", h->name(), req.headers().getRaw(h->name()).value());
+            continue;
+        }
+
+        Debug::log(LOG, "Header in: {}: {}", h->name(), req.headers().getRaw(h->name()).value());
+        builder.header(h);
+    }
+    builder.timeout(std::chrono::milliseconds(10000));
+
+    // TODO: implement streaming for git's large objects?
+
+    auto resp = builder.send();
+    resp.then(
+        [&](Pistache::Http::Response resp) {
+            const auto HEADERSRESP = resp.headers().list();
+
+            for (auto& h : HEADERSRESP) {
+                if (std::string_view{h->name()} == "Transfer-Encoding") {
+                    Debug::log(LOG, "Header out: {}: {} (DROPPED)", h->name(), resp.headers().getRaw(h->name()).value());
+                    continue;
+                }
+                
+                Debug::log(LOG, "Header out: {}: {}", h->name(), resp.headers().getRaw(h->name()).value());
+                response.headers().add(h);
+            }
+
+            response.send(Pistache::Http::Code::Ok, resp.body());
+        },
+        [&](std::exception_ptr e) {
+            try {
+                std::rethrow_exception(e);
+            } catch (std::exception& e) { Debug::log(ERR, "Proxy failed: {}", e.what()); } catch (const std::string& e) {
+                Debug::log(ERR, "Proxy failed: {}", e);
+            } catch (const char* e) { Debug::log(ERR, "Proxy failed: {}", e); } catch (...) {
+                Debug::log(ERR, "Proxy failed: God knows why.");
+            }
+
+            response.send(Pistache::Http::Code::Internal_Server_Error, "Internal Proxy Error");
+        });
+    Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
+    b.wait_for(std::chrono::seconds(10));
 
     client.shutdown();
 }

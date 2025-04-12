@@ -11,6 +11,7 @@
 #include "headers/authorization.hpp"
 #include "headers/xforwardfor.hpp"
 #include "headers/cfHeader.hpp"
+#include "headers/gitProtocolHeader.hpp"
 
 #include "debug/log.hpp"
 
@@ -72,6 +73,7 @@ int main(int argc, char** argv, char** envp) {
 
     Pistache::Http::Header::Registry::instance().registerHeader<CFConnectingIPHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<XForwardedForHeader>();
+    Pistache::Http::Header::Registry::instance().registerHeader<GitProtocolHeader>();
 
     g_pDB = std::make_unique<CDatabase>();
 

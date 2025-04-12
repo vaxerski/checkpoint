@@ -13,6 +13,7 @@ class CConfig {
         std::string       data_dir         = "";
         std::string       html_dir         = "";
         unsigned long int max_request_size = 10000000; // 10MB
+        bool              git_host         = false;
     } m_config;
 };
 
