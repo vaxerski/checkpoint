@@ -1,10 +1,15 @@
 cmake_minimum_required(VERSION 3.19)
 
+file(READ "${CMAKE_SOURCE_DIR}/VERSION" VER_RAW)
+string(STRIP ${VER_RAW} VER)
+
 project(
     checkpoint
     DESCRIPTION "Tiny reverse proxy that attempts to block AI scrapers"
+    VERSION ${VER}
 )
 
+set(CHECKPOINT_VERSION ${VER})
 set(PISTACHE_BUILD_TESTS OFF)
 set(PISTACHE_BUILD_FUZZ OFF)
 
@@ -20,6 +25,7 @@ set(CMAKE_CXX_STANDARD 23)
 add_executable(checkpoint ${SRCFILES})
 
 add_compile_options(-Wno-deprecated-declarations -Wno-deprecated)
+add_compile_definitions(CHECKPOINT_VERSION="${CHECKPOINT_VERSION}")
 
 find_package(PkgConfig REQUIRED)
 

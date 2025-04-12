@@ -234,6 +234,7 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
 
     page.add("challengeDifficulty", CTinylatesProp(std::to_string(DIFFICULTY)));
     page.add("challengeNonce", CTinylatesProp(NONCE));
+    page.add("checkpointVersion", CTinylatesProp(CHECKPOINT_VERSION));
     response.send(Pistache::Http::Code::Ok, page.render().value_or("error"));
 }
 
