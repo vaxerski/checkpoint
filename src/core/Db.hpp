@@ -5,6 +5,7 @@
 #include <chrono>
 #include <optional>
 #include <memory>
+#include <vector>
 
 struct SDatabaseChallengeEntry {
     std::string       nonce      = "";
