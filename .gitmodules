@@ -1,0 +1,12 @@
+[submodule "subprojects/tinylates"]
+	path = subprojects/tinylates
+	url = https://github.com/vaxerski/tinylates
+[submodule "subprojects/pistache"]
+	path = subprojects/pistache
+	url = https://github.com/pistacheio/pistache
+[submodule "subprojects/fmt"]
+	path = subprojects/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "subprojects/glaze"]
+	path = subprojects/glaze
+	url = https://github.com/stephenberry/glaze

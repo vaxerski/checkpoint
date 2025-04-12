@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<head>
+    <title>STOP! - Checkpoint</title>
+</head>
+
+<body style="background-color: #0e0e0e; overflow: hidden;">
+
+    <style>
+        .middle-box {
+            display: block;
+            position: absolute;
+            width: 30rem;
+            height: calc(100% - 2rem);
+            left: calc(50% - 15rem);
+            top: 1rem;
+            background-color: #111111;
+            border-radius: 0.5rem;
+            border: 1px solid #280d0e;
+        }
+
+        .big-icon {
+            margin: 0;
+            padding: 0;
+            font-size: 8rem;
+            color: white;
+            width: 100%;
+            text-align: center;
+        }
+
+        .subtext {
+            margin: 0;
+            padding: 0;
+            font-size: 3rem;
+            color: #d9d9d9;
+            width: 100%;
+            text-align: center;
+        }
+
+        .text-hr {
+            margin: auto;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            padding: 0;
+            background-color: #444444;
+            width: 50%;
+            box-shadow: none;
+            text-align: center;
+            height: 1px;
+            border: none;
+        }
+
+        .text-hr-small {
+            margin: auto;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            padding: 0;
+            background-color: #444444;
+            width: 25%;
+            box-shadow: none;
+            text-align: center;
+            height: 1px;
+            border: none;
+        }
+
+        .text-description {
+            margin: 0;
+            padding: 0;
+            font-size: 1rem;
+            color: #d9d9d9;
+            width: 85%;
+            margin-left: 7.5%;
+            text-align: center;
+        }
+
+        .text-question {
+            margin: 0;
+            margin-top: 4rem;
+            padding: 0;
+            font-size: 1.4rem;
+            color: #d9d9d9;
+            width: 85%;
+            margin-left: 7.5%;
+            text-align: center;
+        }
+
+        .bottom-bar {
+            position: absolute;
+            width: 100%;
+            height: auto;
+            bottom: 0.4rem;
+            left: 0;
+        }
+
+        .bottom-hash-text {
+            margin: 0;
+            padding: 0;
+            font-size: 1rem;
+            color: #d9d9d9;
+            width: 85%;
+            margin-left: 7.5%;
+            text-align: center;
+        }
+
+        .bottom-credit-text {
+            display: block;
+            margin: 0;
+            padding: 0;
+            font-size: 0.5rem;
+            color: #4b4b4b;
+            width: 98%;
+            text-align: right;
+            transition: ease-in-out 0.1s;
+            margin-top: 0.2rem;
+        }
+
+        .bottom-credit-text:hover,
+        .bottom-credit-text:link:hover,
+        .bottom-credit-text:visited:hover {
+            color: #764343;
+            cursor: pointer;
+        }
+
+        .bottom-credit-text:link,
+        .bottom-credit-text:visited {
+            color: #4b4b4b;
+        }
+
+        .bottom-progress {
+            position: relative;
+            height: 3px;
+            background-color: #222222;
+            width: 80%;
+            margin-left: 10%;
+            margin-bottom: 0.8rem;
+        }
+
+        .bottom-progress-light {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 0%;
+            height: 3px;
+            background-color: #692225;
+            transition: ease-in-out 0.1s;
+        }
+
+        @media (pointer:none), (pointer:coarse) {
+            .big-icon {
+                margin-top: 10rem;
+            }
+
+            .middle-box {
+                width: 90%;
+                left: 5%;
+            }
+
+            .subtext {
+                font-size: 6rem;
+            }
+
+            .text-description {
+                font-size: 3rem;
+            }
+
+            .text-hr {
+                height: 3px;
+            }
+
+            .bottom-hash-text {
+                font-size: 2.5rem;
+            }
+
+            .bottom-credit-text {
+                font-size: 1rem;
+            }
+        }
+
+    </style>
+
+    <div class="middle-box">
+        <p class="big-icon">
+            &#128721; <!-- 🛑 -->
+        </p>
+        <p class="subtext" id="subtext">
+            STOP!
+        </p>
+        <hr class="text-hr" />
+        <p class="text-description">
+            Verifying that you are not a bot. This might take a short moment.
+
+            <br/>
+            <br/>
+            
+            You do not need to do anything.
+        </p>
+
+        <p class="text-question">
+            Why am I seeing this?
+        </p>
+
+        <hr class="text-hr-small" />
+
+        <p class="text-description">
+            This website protects itself from AI bots and scrapers
+            by asking you to complete a cryptographic challenge before allowing you entry.
+        </p>
+
+        <div class="bottom-bar">
+            <div class="bottom-progress">
+                <div class="bottom-progress-light" name="progress-light"></div>
+            </div>
+            
+            <p class="bottom-hash-text" id="results">
+                Difficulty {{ tl:text challengeDifficulty }}, elapsed 0ms, 0h, 0h/s
+            </p>
+
+            <a class="bottom-credit-text">
+                <i>Powered by checkpoint</i>
+            </a>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        setTimeout(
+            async function () {
+                var it = 0;
+                var start = Date.now();
+                const challengeNonce = "{{ tl:text challengeNonce }}";
+                const difficulty = parseInt("{{ tl:text challengeDifficulty }}");
+
+                function valid(sha) {
+                    const MIN_ZEROES = difficulty;
+                    for (let i = 0; i < MIN_ZEROES; i += 1) {
+                        if (sha[i] != '0')
+                            return false;
+                    }
+
+                    return true;
+                }
+
+                function itShort(it) {
+                    if (it > 1000000)
+                        return parseInt(it / 100000) / 10 + "M";
+
+                    return parseInt(it / 100) / 10 + "k";
+                }
+
+                function timeShort(ms) {
+                    if (ms > 1000)
+                        return parseInt(ms / 100) / 10 + "s";
+                    return ms + "ms";
+                }
+
+                function getCompletionPercent(it) {
+                    const exp = Math.pow(2, 4 * difficulty);
+                    return Math.floor((1 - 1 / (Math.pow(it / exp * 3, 2) + 1)) * 100);
+                }
+
+                function success(it) {
+                    document.getElementById("results").innerHTML = "Success! Completed challenge after " + itShort(it) + " iterations, in " + timeShort(Math.floor(Date.now() - start)) + ".";
+                    document.getElementsByName("progress-light")[0].style.width = "100%";
+
+                    const data = JSON.stringify({
+                        challenge: challengeNonce,
+                        solution: it,
+                    });
+                    
+                    fetch("/checkpoint/challenge",
+                        {
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+                            method: "POST",
+                            body: data
+                        }
+                    ).then((res) => {
+                        if (res.status == 200) {
+                            console.log("Got token.");
+                                const json = res.json().then((parsed) => {
+                                document.cookie = "CheckpointToken=" + parsed.token + "; path=/";
+                                window.location.reload();
+                            });
+                        } else
+                            console.log("Server error");
+                    });
+                }
+
+                const encoder = new TextEncoder();
+                while (true) {
+                    const data = encoder.encode(challengeNonce + it);
+                    const buffer = await window.crypto.subtle.digest("SHA-256", data);
+                    const hashArray = Array.from(new Uint8Array(buffer));
+                    const sha = hashArray
+                        .map((item) => item.toString(16).padStart(2, "0"))
+                        .join("");
+
+                    if (valid(sha)) {
+                        success(it);
+                        console.log("Success: it " + it + ": " + sha);
+                        break;
+                    }
+
+                    it++;
+
+                    if (it % 11377 == 0) {
+                        let ms = Math.floor(Date.now() - start);
+                        let hpers = it / (ms / 1000);
+                        document.getElementById("results").innerHTML = "Difficulty: " + difficulty + ", elapsed " + timeShort(ms) + ", " + itShort(it) + "h, " + itShort(hpers) + "h/s";
+                        document.getElementsByName("progress-light")[0].style.width = getCompletionPercent(it) + "%";
+                    }
+                }
+            }, 100);
+
+
+        var currentTitle = 1;
+
+        setInterval(
+            () => {
+                const titles = ["STOP", "HALT", "ST&#0211;J", "ARR&#0202;T", "&#1057;&#1058;&#1030;&#1049;"];
+
+                document.getElementById("subtext").innerHTML = titles[currentTitle] + "!";
+
+                currentTitle++;
+                if (currentTitle >= titles.length)
+                    currentTitle = 0;
+            }, 2000
+        )
+    </script>
+
+</body>

@@ -1,0 +1,16 @@
+{
+    // where the html files are located
+    "html_dir": "./html",
+
+    // where the proxy should store its db (directory)
+    "data_dir": "./data",
+
+    // what port the proxy should listen on
+    "port": 3001,
+
+    // what address should the proxy pass after successful verification
+    "forward_address": "127.0.0.1:3000",
+
+    // max request size of 10MB
+    "max_request_size": 10000000
+}
