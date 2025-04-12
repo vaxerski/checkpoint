@@ -1,7 +1,0 @@
-{
-    "html_dir": "./html",
-    "data_dir": "./data",
-    "port": 3001,
-    "forward_address": "127.0.0.1:3000",
-    "max_request_size": 10000000
-}
