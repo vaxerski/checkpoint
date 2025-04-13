@@ -39,6 +39,11 @@ static bool isHashValid(const std::string_view sv) {
 }
 
 CDatabase::CDatabase() {
+    if (!std::filesystem::exists(dbDir())) {
+        Debug::log(LOG, "Data dir doesn't exist, creating.");
+        std::filesystem::create_directory(dbDir());
+    }
+
     if (std::filesystem::exists(dbPath())) {
         if (std::filesystem::exists(dbDir() + "/schema")) {
             int schema = std::stoi(readFileAsText(dbDir() + "/schema"));
