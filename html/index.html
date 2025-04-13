@@ -297,18 +297,26 @@
                     });
                 }
 
-                const encoder = new TextEncoder();
-                while (true) {
-                    const data = encoder.encode(challengeNonce + it);
-                    const buffer = await window.crypto.subtle.digest("SHA-256", data);
-                    const hashArray = Array.from(new Uint8Array(buffer));
-                    const sha = hashArray
-                        .map((item) => item.toString(16).padStart(2, "0"))
-                        .join("");
+                const workBuffer = new Uint8Array(challengeNonce.length + 10);
+                for(let i = 0; i < challengeNonce.length; i++)
+                    workBuffer[i] = challengeNonce.charCodeAt(i);
 
-                    if (valid(sha)) {
+                while(true) {
+                    const digits = it === 0 ? 1 : (~~Math.floor(Math.log10(it)) + 1);
+                    for (let i = digits - 1; i >= 0; i--)
+                        workBuffer[challengeNonce.length + (digits - 1 - i)] = 48 + ~~Math.floor((it / Math.pow(10, i)) % 10);
+
+                    const hashedData = new Uint8Array(await window.crypto.subtle.digest('sha-256', workBuffer));
+                    let zeroPos = 0;
+                    for (; zeroPos < difficulty; zeroPos++)
+                    {
+                        if ((zeroPos % 2 == 0 ? (hashedData[~~(zeroPos / 2)] >> 4) : (hashedData[~~(zeroPos / 2)] & 0x0F)) != 0)
+                            break;
+                    }
+
+                    if(zeroPos >= difficulty) {
                         success(it);
-                        console.log("Success: it " + it + ": " + sha);
+                        console.log("Success: it " + it + ": " + Array.from(hashedData).map((item) => item.toString(16).padStart(2, "0")).join(""));
                         break;
                     }
 
