@@ -4,6 +4,8 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
+
 constexpr const uint64_t TOKEN_VERSION = 1;
 
 CToken::CToken(const std::string& fingerprint, std::chrono::system_clock::time_point issued) : m_fingerprint(fingerprint), m_issued(issued) {
