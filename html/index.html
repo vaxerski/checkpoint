@@ -286,10 +286,7 @@
                     ).then((res) => {
                         if (res.status == 200) {
                             console.log("Got token.");
-                                const json = res.json().then((parsed) => {
-                                document.cookie = "CheckpointToken=" + parsed.token + "; path=/";
-                                window.location.reload();
-                            });
+                            window.location.reload();
                         } else
                             console.log("Server error");
                     });

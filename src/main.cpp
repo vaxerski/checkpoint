@@ -13,6 +13,7 @@
 #include "headers/cfHeader.hpp"
 #include "headers/gitProtocolHeader.hpp"
 #include "headers/acceptLanguageHeader.hpp"
+#include "headers/setCookieHeader.hpp"
 
 #include "debug/log.hpp"
 
@@ -76,6 +77,7 @@ int main(int argc, char** argv, char** envp) {
     Pistache::Http::Header::Registry::instance().registerHeader<XForwardedForHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<GitProtocolHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<AcceptLanguageHeader>();
+    Pistache::Http::Header::Registry::instance().registerHeader<SetCookieHeader>();
 
     g_pDB = std::make_unique<CDatabase>();
 

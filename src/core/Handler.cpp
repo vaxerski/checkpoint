@@ -4,6 +4,7 @@
 #include "../headers/xforwardfor.hpp"
 #include "../headers/gitProtocolHeader.hpp"
 #include "../headers/acceptLanguageHeader.hpp"
+#include "../headers/setCookieHeader.hpp"
 #include "../debug/log.hpp"
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
@@ -343,6 +344,8 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
 
     resp.success = true;
     resp.token   = TOKEN;
+
+    response.headers().add(std::make_shared<SetCookieHeader>("CheckpointToken=" + TOKEN + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
 
     response.send(Pistache::Http::Code::Ok, glz::write_json(resp).value());
 }
