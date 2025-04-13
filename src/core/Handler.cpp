@@ -150,15 +150,16 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         ; // silent ignore
     }
 
-    Debug::log(LOG, "Got request for: {}:{}{}", hostHeader->host(), hostHeader->port().toString(), req.resource());
-    Debug::log(LOG, "Request author: IP {}", req.address().host());
+    Debug::log(LOG, "New request: {}:{}{}", hostHeader->host(), hostHeader->port().toString(), req.resource());
+
+    Debug::log(LOG, " | Request author: IP {}", req.address().host());
     if (cfHeader)
-        Debug::log(LOG, "CloudFlare reports IP: {}", cfHeader->ip());
+        Debug::log(LOG, " | CloudFlare reports IP: {}", cfHeader->ip());
     else
-        Debug::log(WARN, "Connection does not come through CloudFlare");
+        Debug::log(TRACE, "Connection does not come through CloudFlare");
 
     if (userAgentHeader)
-        Debug::log(LOG, "UA: {}", userAgentHeader->agent());
+        Debug::log(LOG, " | UA: {}", userAgentHeader->agent());
 
     if (req.resource() == "/checkpoint/challenge") {
         if (req.method() == Pistache::Http::Method::Post)
@@ -169,17 +170,31 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     }
 
     if (g_pConfig->m_config.git_host) {
-        // TODO: ratelimit and check this. This can be faked!
-        if (gitProtocolHeader && userAgentHeader) {
-            Debug::log(LOG, "Request looks like it is coming from git (UA + GP). Accepting.");
+        // TODO: ratelimit this, probably.
 
-            proxyPass(req, response);
-            return;
-        } else if (userAgentHeader->agent().starts_with("git/")) {
-            Debug::log(LOG, "Request looks like it is coming from git (UA git). Accepting.");
+        const auto RES              = req.resource();
+        bool       validGitResource = RES.ends_with("/info/refs") || RES.ends_with("/info/packs") || RES.ends_with("HEAD") || RES.ends_with(".git");
 
-            proxyPass(req, response);
-            return;
+        if (RES.contains("/objects/")) {
+            const std::string_view repo = std::string_view{RES}.substr(0, RES.find("/objects/"));
+            if (std::count(repo.begin(), repo.end(), '/') == 2)
+                validGitResource = true;
+        }
+
+        if (validGitResource) {
+            if (gitProtocolHeader && userAgentHeader) {
+                Debug::log(LOG, " | Action: PASS (git)");
+                Debug::log(TRACE, "Request looks like it is coming from git (UA + GP). Accepting.");
+
+                proxyPass(req, response);
+                return;
+            } else if (userAgentHeader->agent().starts_with("git/")) {
+                Debug::log(LOG, " | Action: PASS (git)");
+                Debug::log(TRACE, "Request looks like it is coming from git (UA git). Accepting.");
+
+                proxyPass(req, response);
+                return;
+            }
         }
     }
 
@@ -189,6 +204,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         if (TOKEN) {
             const auto AGE = std::chrono::milliseconds(std::time(nullptr)).count() - TOKEN->epoch;
             if (AGE <= TOKEN_MAX_AGE_MS && TOKEN->ip == (cfHeader ? cfHeader->ip() : req.address().host())) {
+                Debug::log(LOG, " | Action: PASS (token)");
                 proxyPass(req, response);
                 return;
             } else // token has been used from a different IP or is expired. Nuke it.
@@ -196,6 +212,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         }
     }
 
+    Debug::log(LOG, " | Action: CHALLENGE");
     serveStop(req, response);
 }
 
@@ -284,7 +301,7 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
 void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
     const std::string FORWARD_ADDR = g_pConfig->m_config.forward_address;
 
-    Debug::log(LOG, "Method ({}): Forwarding to {}", (uint32_t)req.method(), FORWARD_ADDR + req.resource());
+    Debug::log(TRACE, "Method ({}): Forwarding to {}", (uint32_t)req.method(), FORWARD_ADDR + req.resource());
 
     auto builder = m_client->prepareRequest(FORWARD_ADDR + req.resource(), req.method());
     builder.body(req.body());
@@ -294,14 +311,16 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
     const auto HEADERS = req.headers().list();
     for (auto& h : HEADERS) {
         // FIXME: why does this break e.g. gitea if we include it?
-        if (std::string_view{h->name()} == "Host" || std::string_view{h->name()} == "Cache-Control") {
-            Debug::log(LOG, "Header in: {}: {} (DROPPED)", h->name(), req.headers().getRaw(h->name()).value());
+        if (std::string_view{h->name()} == "Host" || std::string_view{h->name()} == "Cache-Control" || std::string_view{h->name()} == "Connection") {
+            Debug::log(TRACE, "Header in: {}: {} (DROPPED)", h->name(), req.headers().getRaw(h->name()).value());
             continue;
         }
 
-        Debug::log(LOG, "Header in: {}: {}", h->name(), req.headers().getRaw(h->name()).value());
+        Debug::log(TRACE, "Header in: {}: {}", h->name(), req.headers().getRaw(h->name()).value());
         builder.header(h);
     }
+    builder.header(std::make_shared<Pistache::Http::Header::Connection>(Pistache::Http::ConnectionControl::KeepAlive));
+
     builder.timeout(std::chrono::seconds(g_pConfig->m_config.proxy_timeout_sec));
 
     // TODO: implement streaming for git's large objects?
@@ -313,11 +332,11 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
 
             for (auto& h : HEADERSRESP) {
                 if (std::string_view{h->name()} == "Transfer-Encoding") {
-                    Debug::log(LOG, "Header out: {}: {} (DROPPED)", h->name(), resp.headers().getRaw(h->name()).value());
+                    Debug::log(TRACE, "Header out: {}: {} (DROPPED)", h->name(), resp.headers().getRaw(h->name()).value());
                     continue;
                 }
-                
-                Debug::log(LOG, "Header out: {}: {}", h->name(), resp.headers().getRaw(h->name()).value());
+
+                Debug::log(TRACE, "Header out: {}: {}", h->name(), resp.headers().getRaw(h->name()).value());
                 response.headers().add(h);
             }
 

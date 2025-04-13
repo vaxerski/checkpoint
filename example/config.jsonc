@@ -15,5 +15,8 @@
     "max_request_size": 10000000,
 
     // Timeout of 2 minutes for the proxy requests
-    "proxy_timeout_sec": 120
+    "proxy_timeout_sec": 120,
+
+    // enables (a lot) more logging
+    "trace_logging": false
 }

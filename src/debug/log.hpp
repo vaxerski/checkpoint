@@ -2,6 +2,7 @@
 #include <string>
 #include <fmt/format.h>
 #include <iostream>
+#include "../config/Config.hpp"
 
 enum LogLevel {
     NONE = -1,
@@ -18,6 +19,9 @@ namespace Debug {
     void log(LogLevel level, fmt::format_string<Args...> fmt, Args&&... args) {
 
         std::string logMsg = "";
+
+        if (g_pConfig && !g_pConfig->m_config.trace_logging && level == TRACE)
+            return;
 
         switch (level) {
             case LOG: logMsg += "[LOG] "; break;

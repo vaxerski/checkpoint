@@ -15,6 +15,7 @@ class CConfig {
         unsigned long int max_request_size  = 10000000; // 10MB
         bool              git_host          = false;
         unsigned long int proxy_timeout_sec = 120; // 2 minutes
+        bool              trace_logging     = false;
     } m_config;
 };
 
