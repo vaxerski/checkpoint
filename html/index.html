@@ -240,16 +240,6 @@
                 const challengeSig = "{{ tl:text challengeSignature }}";
                 const challengeFingerprint = "{{ tl:text challengeFingerprint }}";
 
-                function valid(sha) {
-                    const MIN_ZEROES = difficulty;
-                    for (let i = 0; i < MIN_ZEROES; i += 1) {
-                        if (sha[i] != '0')
-                            return false;
-                    }
-
-                    return true;
-                }
-
                 function itShort(it) {
                     if (it > 1000000)
                         return parseInt(it / 100000) / 10 + "M";
@@ -298,23 +288,22 @@
                 }
 
                 const workBuffer = new Uint8Array(challengeNonce.length + 10);
-                for(let i = 0; i < challengeNonce.length; i++)
+                for (let i = 0; i < challengeNonce.length; i++)
                     workBuffer[i] = challengeNonce.charCodeAt(i);
 
-                while(true) {
+                while (true) {
                     const digits = it === 0 ? 1 : (~~Math.floor(Math.log10(it)) + 1);
                     for (let i = digits - 1; i >= 0; i--)
                         workBuffer[challengeNonce.length + (digits - 1 - i)] = 48 + ~~Math.floor((it / Math.pow(10, i)) % 10);
 
                     const hashedData = new Uint8Array(await window.crypto.subtle.digest('sha-256', workBuffer.slice(0, challengeNonce.length + digits)));
                     let zeroPos = 0;
-                    for (; zeroPos < difficulty; zeroPos++)
-                    {
+                    for (; zeroPos < difficulty; zeroPos++) {
                         if ((zeroPos % 2 == 0 ? (hashedData[~~(zeroPos / 2)] >> 4) : (hashedData[~~(zeroPos / 2)] & 0x0F)) != 0)
                             break;
                     }
 
-                    if(zeroPos >= difficulty) {
+                    if (zeroPos >= difficulty) {
                         success(it);
                         console.log("Success: it " + it + ": " + Array.from(hashedData).map((item) => item.toString(16).padStart(2, "0")).join(""));
                         break;
