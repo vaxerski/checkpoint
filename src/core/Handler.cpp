@@ -145,6 +145,10 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
     return sha256(input);
 }
 
+bool CServerHandler::isResourceCheckpoint(const std::string_view& res) {
+    return res == "/checkpoint/NotoSans.woff";
+}
+
 void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response) {
     const auto                                                 HEADERS = req.headers();
     std::shared_ptr<const Pistache::Http::Header::Host>        hostHeader;
@@ -215,6 +219,12 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
             challengeSubmitted(req, response);
         else
             response.send(Pistache::Http::Code::Bad_Request, "Bad Request");
+        return;
+    }
+
+    if (isResourceCheckpoint(req.resource())) {
+        response.send(Pistache::Http::Code::Ok,
+                      readFileAsText(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir + "/" + req.resource().substr(req.resource().find("checkpoint/") + 11)));
         return;
     }
 

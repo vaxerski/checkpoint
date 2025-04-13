@@ -24,6 +24,8 @@ class CServerHandler : public Pistache::Http::Handler {
     void        challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
     std::string fingerprintForRequest(const Pistache::Http::Request& req);
 
+    bool        isResourceCheckpoint(const std::string_view& res);
+
     struct SChallengeResponse {
         std::string       challenge;
         unsigned long int solution = 0;
