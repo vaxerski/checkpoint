@@ -267,6 +267,14 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
     if (hostDomain.contains(":"))
         hostDomain = hostDomain.substr(0, hostDomain.find(':'));
 
+    // ipv4 vvvvvvvv                                vvvv ipv6
+    if (!std::isdigit(hostDomain.back()) && hostDomain.back() != ']') {
+        size_t lastdot = hostDomain.find_last_of('.');
+        lastdot        = hostDomain.find_last_of('.', lastdot - 1);
+        if (lastdot != std::string::npos)
+            hostDomain = hostDomain.substr(lastdot + 1);
+    }
+
     response.headers().add(
         std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; Domain=" + hostDomain + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
 
