@@ -249,8 +249,8 @@ void CServerHandler::onTimeout(const Pistache::Http::Request& request, Pistache:
 }
 
 void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    const auto                                  JSON        = req.body();
-    const auto                                  FINGERPRINT = fingerprintForRequest(req);
+    const auto JSON        = req.body();
+    const auto FINGERPRINT = fingerprintForRequest(req);
 
     const auto CHALLENGE = CChallenge(req.body());
 
@@ -263,15 +263,28 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
 
     const auto TOKEN = CToken(FINGERPRINT, std::chrono::system_clock::now());
 
-    response.headers().add(std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
+    auto       hostDomain = req.headers().getRaw("Host").value();
+    if (hostDomain.contains(":"))
+        hostDomain = hostDomain.substr(0, hostDomain.find(':'));
+
+    // ipv4 vvvvvvvv                                vvvv ipv6
+    if (!std::isdigit(hostDomain.back()) && hostDomain.back() != ']') {
+        size_t lastdot = hostDomain.find_last_of('.');
+        lastdot        = hostDomain.find_last_of('.', lastdot - 1);
+        if (lastdot != std::string::npos)
+            hostDomain = hostDomain.substr(lastdot + 1);
+    }
+
+    response.headers().add(
+        std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; Domain=" + hostDomain + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
 
     response.send(Pistache::Http::Code::Ok, "Ok");
 }
 
 void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    static const auto       PATH       = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir).string();
-    /* static */ const auto PAGE_INDEX = readFileAsText(PATH + "/index.min.html");
-    CTinylates              page(PAGE_INDEX);
+    static const auto PATH       = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir).string();
+    static const auto PAGE_INDEX = readFileAsText(PATH + "/index.min.html");
+    CTinylates        page(PAGE_INDEX);
     page.setTemplateRoot(PATH);
 
     const auto NONCE      = generateNonce();
@@ -300,6 +313,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
     for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
         builder.cookie(*it);
     }
+    builder.params(req.query());
     const auto HEADERS = req.headers().list();
     for (auto& h : HEADERS) {
         // FIXME: why does this break e.g. gitea if we include it?
