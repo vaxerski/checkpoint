@@ -305,6 +305,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
     for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
         builder.cookie(*it);
     }
+    builder.params(req.query());
     const auto HEADERS = req.headers().list();
     for (auto& h : HEADERS) {
         // FIXME: why does this break e.g. gitea if we include it?
