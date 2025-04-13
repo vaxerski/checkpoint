@@ -303,7 +303,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
     const auto HEADERS = req.headers().list();
     for (auto& h : HEADERS) {
         // FIXME: why does this break e.g. gitea if we include it?
-        if (std::string_view{h->name()} == "Host" || std::string_view{h->name()} == "Cache-Control" || std::string_view{h->name()} == "Connection") {
+        if (std::string_view{h->name()} == "Cache-Control" || std::string_view{h->name()} == "Connection") {
             Debug::log(TRACE, "Header in: {}: {} (DROPPED)", h->name(), req.headers().getRaw(h->name()).value());
             continue;
         }
