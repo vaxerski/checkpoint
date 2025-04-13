@@ -274,9 +274,9 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
 }
 
 void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    static const auto       PATH       = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir).string();
-    /* static */ const auto PAGE_INDEX = readFileAsText(PATH + "/index.min.html");
-    CTinylates              page(PAGE_INDEX);
+    static const auto PATH       = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir).string();
+    static const auto PAGE_INDEX = readFileAsText(PATH + "/index.min.html");
+    CTinylates        page(PAGE_INDEX);
     page.setTemplateRoot(PATH);
 
     const auto NONCE      = generateNonce();
