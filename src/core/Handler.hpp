@@ -11,9 +11,6 @@ class CServerHandler : public Pistache::Http::Handler {
 
     HTTP_PROTOTYPE(CServerHandler)
 
-    void init();
-    void finish();
-
     void onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response);
 
     void onTimeout(const Pistache::Http::Request& request, Pistache::Http::ResponseWriter response);
@@ -36,6 +33,4 @@ class CServerHandler : public Pistache::Http::Handler {
         std::string token   = "";
         std::string error   = "";
     };
-
-    Pistache::Http::Experimental::Client* m_client = nullptr;
 };
