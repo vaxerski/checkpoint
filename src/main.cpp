@@ -81,7 +81,7 @@ int main(int argc, char** argv, char** envp) {
 
     auto endpoint = std::make_unique<Pistache::Http::Endpoint>(address);
     auto opts     = Pistache::Http::Endpoint::options().threads(threads).flags(Pistache::Tcp::Options::ReuseAddr | Pistache::Tcp::Options::ReusePort);
-    opts.maxRequestSize(g_pConfig->m_config.max_request_size); // 150MB TODO: configurable
+    opts.maxRequestSize(g_pConfig->m_config.max_request_size);
     endpoint->init(opts);
     auto handler = Pistache::Http::make_handler<CServerHandler>();
     handler->init();
