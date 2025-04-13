@@ -12,6 +12,7 @@ AI scrapers are everywhere. This will stop them. `robots.txt` won't.
 - Protect your endpoint from AI bots with a cryptographic challenge
 - Easy configuration in jsonc
 - Support for cloudflare
+- Minimal. The waiting page is a single file with no links that weighs 4kB
 
 ### Planned features
 - Dynamic challenge amount (aka difficulty)
