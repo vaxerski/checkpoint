@@ -1,4 +1,7 @@
 #include "Handler.hpp"
+#include "Crypto.hpp"
+#include "Token.hpp"
+#include "Challenge.hpp"
 #include "../headers/authorization.hpp"
 #include "../headers/cfHeader.hpp"
 #include "../headers/xforwardfor.hpp"
@@ -8,7 +11,6 @@
 #include "../debug/log.hpp"
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
-#include "Db.hpp"
 
 #include <fstream>
 #include <filesystem>
@@ -20,7 +22,8 @@
 #include <glaze/glaze.hpp>
 #include <openssl/evp.h>
 
-constexpr const uint64_t TOKEN_MAX_AGE_MS = 1000 * 60 * 60; // 1hr
+constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
+constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
 
 //
 static std::string readFileAsText(const std::string& path) {
@@ -52,36 +55,6 @@ static std::string generateToken() {
     std::stringstream               ss;
     for (size_t i = 0; i < 16; ++i) {
         ss << fmt::format("{:08x}", distribution(engine));
-    }
-
-    return ss.str();
-}
-
-static std::string sha256(const std::string& string) {
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    if (!ctx)
-        return "";
-
-    if (!EVP_DigestInit(ctx, EVP_sha256())) {
-        EVP_MD_CTX_free(ctx);
-        return "";
-    }
-
-    if (!EVP_DigestUpdate(ctx, string.c_str(), string.size())) {
-        EVP_MD_CTX_free(ctx);
-        return "";
-    }
-
-    uint8_t buf[32];
-
-    if (!EVP_DigestFinal(ctx, buf, nullptr)) {
-        EVP_MD_CTX_free(ctx);
-        return "";
-    }
-
-    std::stringstream ss;
-    for (size_t i = 0; i < 32; ++i) {
-        ss << fmt::format("{:02x}", buf[i]);
     }
 
     return ss.str();
@@ -132,7 +105,7 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
 
     input += req.address().host();
 
-    return sha256(input);
+    return g_pCrypto->sha256(input);
 }
 
 bool CServerHandler::isResourceCheckpoint(const std::string_view& res) {
@@ -247,24 +220,24 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         }
     }
 
-    if (req.cookies().has("CheckpointToken")) {
+    if (req.cookies().has(TOKEN_COOKIE_NAME)) {
         // check the token
-        const auto TOKEN = g_pDB->getToken(req.cookies().get("CheckpointToken").value);
-        if (TOKEN) {
-            const auto AGE = std::chrono::milliseconds(std::time(nullptr)).count() - TOKEN->epoch;
-            if (AGE <= TOKEN_MAX_AGE_MS && TOKEN->fingerprint == fingerprintForRequest(req)) {
+        const auto TOKEN = CToken(req.cookies().get(TOKEN_COOKIE_NAME).value);
+        if (TOKEN.valid()) {
+            const auto AGE = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() -
+                std::chrono::duration_cast<std::chrono::milliseconds>(TOKEN.issued().time_since_epoch()).count();
+            if (AGE <= TOKEN_MAX_AGE_MS && TOKEN.fingerprint() == fingerprintForRequest(req)) {
                 Debug::log(LOG, " | Action: PASS (token)");
                 proxyPass(req, response);
                 return;
             } else { // token has been used from a different IP or is expired. Nuke it.
-                g_pDB->dropToken(TOKEN->token);
                 if (AGE > TOKEN_MAX_AGE_MS)
                     Debug::log(LOG, " | Action: CHALLENGE (token expired)");
                 else
                     Debug::log(LOG, " | Action: CHALLENGE (token fingerprint mismatch)");
             }
         } else
-            Debug::log(LOG, " | Action: CHALLENGE (token not found in db)");
+            Debug::log(LOG, " | Action: CHALLENGE (token invalid)");
     } else
         Debug::log(LOG, " | Action: CHALLENGE (no token)");
 
@@ -279,64 +252,20 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
     const auto                                  JSON        = req.body();
     const auto                                  FINGERPRINT = fingerprintForRequest(req);
 
-    std::shared_ptr<const CFConnectingIPHeader> cfHeader;
-    try {
-        cfHeader = Pistache::Http::Header::header_cast<CFConnectingIPHeader>(req.headers().get("cf-connecting-ip"));
-    } catch (std::exception& e) {
-        ; // silent ignore
-    }
+    const auto CHALLENGE = CChallenge(req.body());
 
-    auto           json = glz::read_json<SChallengeResponse>(JSON);
-    STokenResponse resp;
-
-    if (!json) {
-        resp.error = "bad input";
-        response.send(Pistache::Http::Code::Bad_Request, glz::write_json(resp).value());
+    if (!CHALLENGE.valid()) {
+        response.send(Pistache::Http::Code::Bad_Request, "Bad request");
         return;
-    }
-
-    auto       val = json.value();
-
-    const auto CHALLENGE = g_pDB->getChallenge(val.challenge);
-
-    if (!CHALLENGE.has_value()) {
-        resp.error = "bad challenge";
-        response.send(Pistache::Http::Code::Bad_Request, glz::write_json(resp).value());
-        return;
-    }
-
-    if (CHALLENGE->fingerprint != FINGERPRINT) {
-        resp.error = "bad challenge";
-        response.send(Pistache::Http::Code::Bad_Request, glz::write_json(resp).value());
-        return;
-    }
-
-    // drop challenge already.
-    g_pDB->dropChallenge(val.challenge);
-
-    // verify challenge
-    const auto SHA = sha256(val.challenge + std::to_string(val.solution));
-
-    for (int i = 0; i < CHALLENGE->difficulty; ++i) {
-        if (SHA.at(i) != '0') {
-            resp.error = "bad solution";
-            response.send(Pistache::Http::Code::Bad_Request, glz::write_json(resp).value());
-            return;
-        }
     }
 
     // correct solution, return a token
 
-    const auto TOKEN = generateToken();
+    const auto TOKEN = CToken(FINGERPRINT, std::chrono::system_clock::now());
 
-    g_pDB->addToken(SDatabaseTokenEntry{.token = TOKEN, .fingerprint = FINGERPRINT});
+    response.headers().add(std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
 
-    resp.success = true;
-    resp.token   = TOKEN;
-
-    response.headers().add(std::make_shared<SetCookieHeader>("CheckpointToken=" + TOKEN + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
-
-    response.send(Pistache::Http::Code::Ok, glz::write_json(resp).value());
+    response.send(Pistache::Http::Code::Ok, "Ok");
 }
 
 void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
@@ -348,10 +277,12 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
     const auto NONCE      = generateNonce();
     const auto DIFFICULTY = 4;
 
-    g_pDB->addChallenge(SDatabaseChallengeEntry{.nonce = NONCE, .difficulty = DIFFICULTY, .fingerprint = fingerprintForRequest(req)});
+    const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, DIFFICULTY);
 
     page.add("challengeDifficulty", CTinylatesProp(std::to_string(DIFFICULTY)));
     page.add("challengeNonce", CTinylatesProp(NONCE));
+    page.add("challengeSignature", CTinylatesProp(CHALLENGE.signature()));
+    page.add("challengeFingerprint", CTinylatesProp(CHALLENGE.fingerprint()));
     page.add("checkpointVersion", CTinylatesProp(CHECKPOINT_VERSION));
     response.send(Pistache::Http::Code::Ok, page.render().value_or("error"));
 }

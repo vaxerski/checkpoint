@@ -29,7 +29,7 @@ add_compile_definitions(CHECKPOINT_VERSION="${CHECKPOINT_VERSION}")
 
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(deps IMPORTED_TARGET openssl sqlite3)
+pkg_check_modules(deps IMPORTED_TARGET openssl)
 
 target_include_directories(checkpoint
 PRIVATE

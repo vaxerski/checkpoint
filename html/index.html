@@ -154,7 +154,8 @@
             transition: ease-in-out 0.1s;
         }
 
-        @media (pointer:none), (pointer:coarse) {
+        @media (pointer:none),
+        (pointer:coarse) {
             .big-icon {
                 margin-top: 10rem;
             }
@@ -184,7 +185,6 @@
                 font-size: 1rem;
             }
         }
-
     </style>
 
     <div class="middle-box">
@@ -198,9 +198,9 @@
         <p class="text-description">
             Verifying that you are not a bot. This might take a short moment.
 
-            <br/>
-            <br/>
-            
+            <br />
+            <br />
+
             You do not need to do anything.
         </p>
 
@@ -219,7 +219,7 @@
             <div class="bottom-progress">
                 <div class="bottom-progress-light" name="progress-light"></div>
             </div>
-            
+
             <p class="bottom-hash-text" id="results">
                 Difficulty {{ tl:text challengeDifficulty }}, elapsed 0ms, 0h, 0h/s
             </p>
@@ -237,6 +237,8 @@
                 var start = Date.now();
                 const challengeNonce = "{{ tl:text challengeNonce }}";
                 const difficulty = parseInt("{{ tl:text challengeDifficulty }}");
+                const challengeSig = "{{ tl:text challengeSignature }}";
+                const challengeFingerprint = "{{ tl:text challengeFingerprint }}";
 
                 function valid(sha) {
                     const MIN_ZEROES = difficulty;
@@ -273,8 +275,11 @@
                     const data = JSON.stringify({
                         challenge: challengeNonce,
                         solution: it,
+                        difficulty: difficulty,
+                        sig: challengeSig,
+                        fingerprint: challengeFingerprint
                     });
-                    
+
                     fetch("/checkpoint/challenge",
                         {
                             headers: {

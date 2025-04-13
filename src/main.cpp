@@ -18,7 +18,7 @@
 #include "debug/log.hpp"
 
 #include "core/Handler.hpp"
-#include "core/Db.hpp"
+#include "core/Crypto.hpp"
 
 #include "config/Config.hpp"
 
@@ -79,7 +79,7 @@ int main(int argc, char** argv, char** envp) {
     Pistache::Http::Header::Registry::instance().registerHeader<AcceptLanguageHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<SetCookieHeader>();
 
-    g_pDB = std::make_unique<CDatabase>();
+    g_pCrypto = std::make_unique<CCrypto>();
 
     auto endpoint = std::make_unique<Pistache::Http::Endpoint>(address);
     auto opts     = Pistache::Http::Endpoint::options().threads(threads).flags(Pistache::Tcp::Options::ReuseAddr | Pistache::Tcp::Options::ReusePort);
