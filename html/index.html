@@ -306,7 +306,7 @@
                     for (let i = digits - 1; i >= 0; i--)
                         workBuffer[challengeNonce.length + (digits - 1 - i)] = 48 + ~~Math.floor((it / Math.pow(10, i)) % 10);
 
-                    const hashedData = new Uint8Array(await window.crypto.subtle.digest('sha-256', workBuffer));
+                    const hashedData = new Uint8Array(await window.crypto.subtle.digest('sha-256', workBuffer.slice(0, challengeNonce.length + digits)));
                     let zeroPos = 0;
                     for (; zeroPos < difficulty; zeroPos++)
                     {
