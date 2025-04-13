@@ -7,15 +7,30 @@
 #include <filesystem>
 #include <string_view>
 #include <algorithm>
+#include <fstream>
 
 constexpr const char*    DB_FILE                    = "data.db";
 constexpr const uint64_t DB_TIME_BEFORE_CLEANUP_MS  = 1000 * 60 * 10; // 10 mins
 constexpr const uint64_t DB_TOKEN_LIFE_LENGTH_S     = 60 * 60;        // 1hr
 constexpr const uint64_t DB_CHALLENGE_LIFE_LENGTH_S = 60 * 10;        // 10 mins
+constexpr const uint64_t DB_SCHEMA_VERSION          = 2;
 
 //
+static std::string readFileAsText(const std::string& path) {
+    std::ifstream ifs(path);
+    auto          res = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+    if (res.back() == '\n')
+        res.pop_back();
+    return res;
+}
+
+static std::string dbDir() {
+    static const std::string dir = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.data_dir).string();
+    return dir;
+}
+
 static std::string dbPath() {
-    static const std::string path = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.data_dir).string() + "/" + DB_FILE;
+    static const std::string path = dbDir() + "/" + DB_FILE;
     return path;
 }
 
@@ -23,23 +38,31 @@ static bool isHashValid(const std::string_view sv) {
     return std::all_of(sv.begin(), sv.end(), [](const char& c) { return (c >= 'a' && c <= 'f') || std::isdigit(c); });
 }
 
-static bool isIpValid(const std::string_view sv) {
-    return std::all_of(sv.begin(), sv.end(), [](const char& c) { return c == '.' || c == ':' || std::isdigit(c); });
-}
-
 CDatabase::CDatabase() {
     if (std::filesystem::exists(dbPath())) {
-        if (sqlite3_open(dbPath().c_str(), &m_db) != SQLITE_OK)
-            throw std::runtime_error("failed to open sqlite3 db");
+        if (std::filesystem::exists(dbDir() + "/schema")) {
+            int schema = std::stoi(readFileAsText(dbDir() + "/schema"));
+            if (schema == DB_SCHEMA_VERSION) {
+                if (sqlite3_open(dbPath().c_str(), &m_db) != SQLITE_OK)
+                    throw std::runtime_error("failed to open sqlite3 db");
 
-        cleanupDb();
-        return;
-    }
+                cleanupDb();
+                return;
+            } else
+                Debug::log(LOG, "Database outdated, recreating db");
+        } else
+            Debug::log(LOG, "Database schema not present, recreating db");
+    } else
+        Debug::log(LOG, "Database not present, creating one");
 
-    Debug::log(LOG, "Database not present, creating one");
+    std::filesystem::remove(dbPath());
 
     if (sqlite3_open(dbPath().c_str(), &m_db) != SQLITE_OK)
         throw std::runtime_error("failed to open sqlite3 db");
+
+    std::ofstream of(dbDir() + "/schema", std::ios::trunc);
+    of << DB_SCHEMA_VERSION;
+    of.close();
 
     // create db layout
     char*       errmsg = nullptr;
@@ -47,7 +70,7 @@ CDatabase::CDatabase() {
     const char* CHALLENGE_TABLE = R"#(
 CREATE TABLE challenges (
 	nonce TEXT NOT NULL,
-	ip TEXT NOT NULL,
+	fingerprint TEXT NOT NULL,
 	difficulty INTEGER NOT NULL,
 	epoch INTEGER NOT NULL,
 	CONSTRAINT PK PRIMARY KEY (nonce)
@@ -58,7 +81,7 @@ CREATE TABLE challenges (
     const char* TOKENS_TABLE = R"#(
 CREATE TABLE tokens (
 	token TEXT NOT NULL,
-	ip TEXT NOT NULL,
+	fingerprint TEXT NOT NULL,
 	epoch INTEGER NOT NULL,
 	CONSTRAINT PK PRIMARY KEY (token)
 );)#";
@@ -75,14 +98,14 @@ void CDatabase::addChallenge(const SDatabaseChallengeEntry& entry) {
     if (!isHashValid(entry.nonce))
         return;
 
-    if (!isIpValid(entry.ip))
+    if (!isHashValid(entry.fingerprint))
         return;
 
     const std::string CMD = fmt::format(R"#(
 INSERT INTO challenges VALUES (
 "{}", "{}", {}, {}
 );)#",
-                                        entry.nonce, entry.ip, entry.difficulty, entry.epoch);
+                                        entry.nonce, entry.fingerprint, entry.difficulty, entry.epoch);
 
     char*             errmsg = nullptr;
     sqlite3_exec(m_db, CMD.c_str(), nullptr, nullptr, &errmsg);
@@ -120,7 +143,7 @@ SELECT * FROM challenges WHERE nonce = "{}";
     if (errmsg || result.result.size() < 4)
         return std::nullopt;
 
-    return SDatabaseChallengeEntry{.nonce = nonce, .difficulty = std::stoi(result.result.at(2)), .epoch = std::stoull(result.result.at(3)), .ip = result.result.at(1)};
+    return SDatabaseChallengeEntry{.nonce = nonce, .difficulty = std::stoi(result.result.at(2)), .epoch = std::stoull(result.result.at(3)), .fingerprint = result.result.at(1)};
 }
 
 void CDatabase::dropChallenge(const std::string& nonce) {
@@ -143,14 +166,14 @@ void CDatabase::addToken(const SDatabaseTokenEntry& entry) {
     if (!isHashValid(entry.token))
         return;
 
-    if (!isIpValid(entry.ip))
+    if (!isHashValid(entry.fingerprint))
         return;
 
     const std::string CMD = fmt::format(R"#(
 INSERT INTO tokens VALUES (
 "{}", "{}", {}
 );)#",
-                                        entry.token, entry.ip, entry.epoch);
+                                        entry.token, entry.fingerprint, entry.epoch);
 
     char*             errmsg = nullptr;
     sqlite3_exec(m_db, CMD.c_str(), nullptr, nullptr, &errmsg);
@@ -207,7 +230,7 @@ SELECT * FROM tokens WHERE token = "{}";
     if (errmsg || result.result.size() < 3)
         return std::nullopt;
 
-    return SDatabaseTokenEntry{.token = token, .epoch = std::stoull(result.result.at(2)), .ip = result.result.at(1)};
+    return SDatabaseTokenEntry{.token = token, .epoch = std::stoull(result.result.at(2)), .fingerprint = result.result.at(1)};
 }
 
 bool CDatabase::shouldCleanupDb() {

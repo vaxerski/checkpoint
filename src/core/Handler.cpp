@@ -3,6 +3,7 @@
 #include "../headers/cfHeader.hpp"
 #include "../headers/xforwardfor.hpp"
 #include "../headers/gitProtocolHeader.hpp"
+#include "../headers/acceptLanguageHeader.hpp"
 #include "../debug/log.hpp"
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
@@ -94,6 +95,54 @@ void CServerHandler::finish() {
     m_client->shutdown();
     delete m_client;
     m_client = nullptr;
+}
+
+std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request& req) {
+    const auto                                                    HEADERS = req.headers();
+    std::shared_ptr<const Pistache::Http::Header::AcceptEncoding> acceptEncodingHeader;
+    std::shared_ptr<const Pistache::Http::Header::UserAgent>      userAgentHeader;
+    std::shared_ptr<const CFConnectingIPHeader>                   cfHeader;
+    std::shared_ptr<const AcceptLanguageHeader>                   languageHeader;
+
+    std::string                                                   input = "checkpoint-";
+
+    try {
+        cfHeader = Pistache::Http::Header::header_cast<CFConnectingIPHeader>(HEADERS.get("cf-connecting-ip"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    try {
+        acceptEncodingHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::AcceptEncoding>(HEADERS.get("Accept-Encoding"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    try {
+        languageHeader = Pistache::Http::Header::header_cast<AcceptLanguageHeader>(HEADERS.get("Accept-Language"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    try {
+        userAgentHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::UserAgent>(HEADERS.get("User-Agent"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    if (cfHeader)
+        input += cfHeader->ip();
+    // TODO: those seem to change. Find better things to hash.
+    // if (acceptEncodingHeader)
+    //     input += HEADERS.getRaw("Accept-Encoding").value();
+    // if (languageHeader)
+    //     input += languageHeader->language();
+    if (userAgentHeader)
+        input += userAgentHeader->agent();
+
+    input += req.address().host();
+
+    return sha256(input);
 }
 
 void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response) {
@@ -203,16 +252,22 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         const auto TOKEN = g_pDB->getToken(req.cookies().get("CheckpointToken").value);
         if (TOKEN) {
             const auto AGE = std::chrono::milliseconds(std::time(nullptr)).count() - TOKEN->epoch;
-            if (AGE <= TOKEN_MAX_AGE_MS && TOKEN->ip == (cfHeader ? cfHeader->ip() : req.address().host())) {
+            if (AGE <= TOKEN_MAX_AGE_MS && TOKEN->fingerprint == fingerprintForRequest(req)) {
                 Debug::log(LOG, " | Action: PASS (token)");
                 proxyPass(req, response);
                 return;
-            } else // token has been used from a different IP or is expired. Nuke it.
+            } else { // token has been used from a different IP or is expired. Nuke it.
                 g_pDB->dropToken(TOKEN->token);
-        }
-    }
+                if (AGE > TOKEN_MAX_AGE_MS)
+                    Debug::log(LOG, " | Action: CHALLENGE (token expired)");
+                else
+                    Debug::log(LOG, " | Action: CHALLENGE (token fingerprint mismatch)");
+            }
+        } else
+            Debug::log(LOG, " | Action: CHALLENGE (token not found in db)");
+    } else
+        Debug::log(LOG, " | Action: CHALLENGE (no token)");
 
-    Debug::log(LOG, " | Action: CHALLENGE");
     serveStop(req, response);
 }
 
@@ -221,7 +276,8 @@ void CServerHandler::onTimeout(const Pistache::Http::Request& request, Pistache:
 }
 
 void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    const auto                                  JSON = req.body();
+    const auto                                  JSON        = req.body();
+    const auto                                  FINGERPRINT = fingerprintForRequest(req);
 
     std::shared_ptr<const CFConnectingIPHeader> cfHeader;
     try {
@@ -249,7 +305,7 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
         return;
     }
 
-    if (CHALLENGE->ip != req.address().host()) {
+    if (CHALLENGE->fingerprint != FINGERPRINT) {
         resp.error = "bad challenge";
         response.send(Pistache::Http::Code::Bad_Request, glz::write_json(resp).value());
         return;
@@ -273,7 +329,7 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
 
     const auto TOKEN = generateToken();
 
-    g_pDB->addToken(SDatabaseTokenEntry{.token = TOKEN, .ip = (cfHeader ? cfHeader->ip() : req.address().host())});
+    g_pDB->addToken(SDatabaseTokenEntry{.token = TOKEN, .fingerprint = FINGERPRINT});
 
     resp.success = true;
     resp.token   = TOKEN;
@@ -290,7 +346,7 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
     const auto NONCE      = generateNonce();
     const auto DIFFICULTY = 4;
 
-    g_pDB->addChallenge(SDatabaseChallengeEntry{.nonce = NONCE, .difficulty = DIFFICULTY, .ip = req.address().host()});
+    g_pDB->addChallenge(SDatabaseChallengeEntry{.nonce = NONCE, .difficulty = DIFFICULTY, .fingerprint = fingerprintForRequest(req)});
 
     page.add("challengeDifficulty", CTinylatesProp(std::to_string(DIFFICULTY)));
     page.add("challengeNonce", CTinylatesProp(NONCE));

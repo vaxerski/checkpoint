@@ -8,16 +8,16 @@
 #include <vector>
 
 struct SDatabaseChallengeEntry {
-    std::string       nonce      = "";
-    int               difficulty = 0;
-    unsigned long int epoch      = std::chrono::system_clock::now().time_since_epoch() / std::chrono::seconds(1);
-    std::string       ip         = "";
+    std::string       nonce       = "";
+    int               difficulty  = 0;
+    unsigned long int epoch       = std::chrono::system_clock::now().time_since_epoch() / std::chrono::seconds(1);
+    std::string       fingerprint = "";
 };
 
 struct SDatabaseTokenEntry {
-    std::string       token = "";
-    unsigned long int epoch = std::chrono::system_clock::now().time_since_epoch() / std::chrono::seconds(1);
-    std::string       ip    = "";
+    std::string       token       = "";
+    unsigned long int epoch       = std::chrono::system_clock::now().time_since_epoch() / std::chrono::seconds(1);
+    std::string       fingerprint = "";
 };
 
 class CDatabase {

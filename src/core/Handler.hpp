@@ -19,9 +19,10 @@ class CServerHandler : public Pistache::Http::Handler {
     void onTimeout(const Pistache::Http::Request& request, Pistache::Http::ResponseWriter response);
 
   private:
-    void serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
-    void proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
-    void challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
+    void        serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
+    void        proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
+    void        challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
+    std::string fingerprintForRequest(const Pistache::Http::Request& req);
 
     struct SChallengeResponse {
         std::string       challenge;
