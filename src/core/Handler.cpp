@@ -249,8 +249,8 @@ void CServerHandler::onTimeout(const Pistache::Http::Request& request, Pistache:
 }
 
 void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    const auto                                  JSON        = req.body();
-    const auto                                  FINGERPRINT = fingerprintForRequest(req);
+    const auto JSON        = req.body();
+    const auto FINGERPRINT = fingerprintForRequest(req);
 
     const auto CHALLENGE = CChallenge(req.body());
 
@@ -263,7 +263,12 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
 
     const auto TOKEN = CToken(FINGERPRINT, std::chrono::system_clock::now());
 
-    response.headers().add(std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
+    auto       hostDomain = req.headers().getRaw("Host").value();
+    if (hostDomain.contains(":"))
+        hostDomain = hostDomain.substr(0, hostDomain.find(':'));
+
+    response.headers().add(
+        std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; Domain=" + hostDomain + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
 
     response.send(Pistache::Http::Code::Ok, "Ok");
 }
