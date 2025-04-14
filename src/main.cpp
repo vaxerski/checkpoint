@@ -41,7 +41,7 @@ int main(int argc, char** argv, char** envp) {
 
     std::vector<std::string> command;
 
-    g_pGlobalState->cwd = std::filesystem::current_path();
+    g_pGlobalState->cwd = std::filesystem::current_path().string();
 
     for (int i = 1; i < argc; ++i) {
         if (ARGS[i].starts_with("-")) {

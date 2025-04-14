@@ -25,12 +25,15 @@
 constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
 constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
 
-//
 static std::string readFileAsText(const std::string& path) {
     std::ifstream ifs(path);
-    auto          res = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
-    if (res.back() == '\n')
+    if (!ifs) {
+        throw std::runtime_error("Could not open file: " + path);
+    }
+    auto res = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+    if (!res.empty() && res.back() == '\n') {
         res.pop_back();
+    }
     return res;
 }
 
@@ -186,10 +189,55 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     }
 
     if (isResourceCheckpoint(req.resource())) {
-        response.send(Pistache::Http::Code::Ok,
-                      readFileAsText(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir + "/" + req.resource().substr(req.resource().find("checkpoint/") + 11)));
-        return;
+        std::filesystem::path html_dir_from_config = g_pConfig->m_config.html_dir;
+        std::filesystem::path base_html_path;
+        if (html_dir_from_config.is_absolute()) {
+            base_html_path = html_dir_from_config;
+        } else {
+            base_html_path = std::filesystem::path(g_pGlobalState->cwd) / html_dir_from_config;
+        }
+
+        // assumes resource paths always start with /checkpoint/, does this hold?
+        std::string resource_sub_path_str;
+        size_t prefix_pos = req.resource().find("/checkpoint/");
+        if (prefix_pos != std::string::npos) {
+             resource_sub_path_str = req.resource().substr(prefix_pos + 12); // len "/checkpoint/"
+        }
+
+        std::filesystem::path final_resource_path = base_html_path / resource_sub_path_str;
+
+        try {
+            std::error_code ec;
+            final_resource_path = canonical(final_resource_path, ec);
+            if (ec) {
+                 Debug::log(WARN, "Cannot resolve requested resource path '{}': {}", final_resource_path.string(), ec.message());
+                 response.send(Pistache::Http::Code::Not_Found, "Resource not found");
+                 return;
+            }
+
+             auto [base_mismatch, file_mismatch] = std::mismatch(base_html_path.begin(), base_html_path.end(), final_resource_path.begin());
+             if (base_mismatch != base_html_path.end()) {
+                 Debug::log(WARN, "Attempted directory traversal: {}", final_resource_path.string());
+                 response.send(Pistache::Http::Code::Forbidden, "Forbidden");
+                 return;
+             }
+
+            std::string file_content = readFileAsText(final_resource_path.string());
+            // TODO: probably want to determine MIME type from file extension
+            response.send(Pistache::Http::Code::Ok, file_content);
+        } catch (const std::filesystem::filesystem_error& e) {
+            // canonical might throw filesystem_error
+            Debug::log(WARN, "Filesystem error accessing resource '{}': {}", final_resource_path.string(), e.what());
+            response.send(Pistache::Http::Code::Not_Found, "Resource not found");
+        } catch (const std::runtime_error& e) {
+            // readFileAsText throws if file not found or unreadable
+            Debug::log(WARN, "Failed to read checkpoint resource '{}': {}", final_resource_path.string(), e.what());
+            response.send(Pistache::Http::Code::Not_Found, "Resource not found");
+        }
+
+        return; // handled
     }
+
 
     if (g_pConfig->m_config.git_host) {
         // TODO: ratelimit this, probably.
@@ -282,14 +330,40 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
 }
 
 void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    static const auto PATH       = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir).string();
-    static const auto PAGE_INDEX = readFileAsText(PATH + "/index.min.html");
-    CTinylates        page(PAGE_INDEX);
-    page.setTemplateRoot(PATH);
+    // for the sake of consistency
+    std::filesystem::path html_dir_from_config = g_pConfig->m_config.html_dir;
+    std::filesystem::path base_html_path;
+    if (html_dir_from_config.is_absolute()) {
+        base_html_path = html_dir_from_config;
+    } else {
+        base_html_path = std::filesystem::path(g_pGlobalState->cwd) / html_dir_from_config;
+    }
 
-    const auto NONCE      = generateNonce();
-    const auto DIFFICULTY = 4;
+    std::error_code ec;
+    base_html_path = std::filesystem::canonical(base_html_path, ec);
+    if (ec) {
+        Debug::log(CRIT, "Cannot resolve configured html_dir '{}': {}", g_pConfig->m_config.html_dir, ec.message());
+        // we dont wanna expose internal path in response
+        response.send(Pistache::Http::Code::Internal_Server_Error, "Server Configuration Error (HTML Path)");
+        return;
+    }
 
+    std::filesystem::path index_file_path = base_html_path / "index.min.html";
+
+    std::string page_index_content;
+    try {
+        page_index_content = readFileAsText(index_file_path.string());
+    } catch (const std::runtime_error& e) {
+        Debug::log(CRIT, "Cannot read index file '{}': {}", index_file_path.string(), e.what());
+        response.send(Pistache::Http::Code::Internal_Server_Error, "Server Configuration Error (Index File)");
+        return;
+    }
+
+    CTinylates page(page_index_content);
+    page.setTemplateRoot(base_html_path.string());
+
+    const auto     NONCE      = generateNonce();
+    constexpr auto DIFFICULTY = 4;
     const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, DIFFICULTY);
 
     page.add("challengeDifficulty", CTinylatesProp(std::to_string(DIFFICULTY)));
@@ -297,8 +371,10 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
     page.add("challengeSignature", CTinylatesProp(CHALLENGE.signature()));
     page.add("challengeFingerprint", CTinylatesProp(CHALLENGE.fingerprint()));
     page.add("checkpointVersion", CTinylatesProp(CHECKPOINT_VERSION));
-    response.send(Pistache::Http::Code::Ok, page.render().value_or("error"));
+
+    response.send(Pistache::Http::Code::Ok, page.render().value_or("error rendering challenge page"));
 }
+
 
 void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
     const std::string FORWARD_ADDR = g_pConfig->m_config.forward_address;
