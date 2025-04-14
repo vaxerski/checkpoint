@@ -11,8 +11,8 @@
 #include "../debug/log.hpp"
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
+#include "../helpers/FsUtils.hpp"
 
-#include <fstream>
 #include <filesystem>
 #include <random>
 #include <sstream>
@@ -26,13 +26,6 @@ constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
 constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
 
 //
-static std::string readFileAsText(const std::string& path) {
-    std::ifstream ifs(path);
-    auto          res = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
-    if (res.back() == '\n')
-        res.pop_back();
-    return res;
-}
 
 static std::string generateNonce() {
     static std::random_device       dev;
@@ -186,8 +179,8 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     }
 
     if (isResourceCheckpoint(req.resource())) {
-        response.send(Pistache::Http::Code::Ok,
-                      readFileAsText(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir + "/" + req.resource().substr(req.resource().find("checkpoint/") + 11)));
+        // no directory traversal is possible when resource is checkpoint
+        response.send(Pistache::Http::Code::Ok, NFsUtils::readFileAsString(NFsUtils::htmlPath(req.resource().substr(req.resource().find("checkpoint/") + 11))).value());
         return;
     }
 
@@ -282,10 +275,10 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
 }
 
 void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    static const auto PATH       = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir).string();
-    static const auto PAGE_INDEX = readFileAsText(PATH + "/index.min.html");
+    static const auto PAGE_INDEX = NFsUtils::readFileAsString(NFsUtils::htmlPath("/index.min.html")).value();
+    static const auto PAGE_ROOT  = PAGE_INDEX.substr(0, PAGE_INDEX.find_last_of("/") + 1);
     CTinylates        page(PAGE_INDEX);
-    page.setTemplateRoot(PATH);
+    page.setTemplateRoot(PAGE_ROOT);
 
     const auto NONCE      = generateNonce();
     const auto DIFFICULTY = 4;
