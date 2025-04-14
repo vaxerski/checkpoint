@@ -98,7 +98,7 @@ std::string CCrypto::sha256(const std::string& in) {
 }
 
 bool CCrypto::genKey() {
-    EVP_PKEY_CTX* ctx  = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
 
     if (!ctx)
         return false;
@@ -178,7 +178,7 @@ bool CCrypto::verifySignature(const std::string& in, const std::string& sig) {
 
     auto sigAsArr = toByteArr(sig);
 
-    int ret = EVP_DigestVerify(ctx, sigAsArr.data(), sigAsArr.size(), (const unsigned char*)in.c_str(), in.size());
+    int  ret = EVP_DigestVerify(ctx, sigAsArr.data(), sigAsArr.size(), (const unsigned char*)in.c_str(), in.size());
 
     if (ret == 1) {
         // match

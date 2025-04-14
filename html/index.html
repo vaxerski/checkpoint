@@ -236,6 +236,7 @@
                 var it = 0;
                 var start = Date.now();
                 const challengeNonce = "{{ tl:text challengeNonce }}";
+                const challengeTimestamp = "{{ tl:text challengeTimestamp }}";
                 const difficulty = parseInt("{{ tl:text challengeDifficulty }}");
                 const challengeSig = "{{ tl:text challengeSignature }}";
                 const challengeFingerprint = "{{ tl:text challengeFingerprint }}";
@@ -267,7 +268,8 @@
                         solution: it,
                         difficulty: difficulty,
                         sig: challengeSig,
-                        fingerprint: challengeFingerprint
+                        fingerprint: challengeFingerprint,
+                        timestamp: challengeTimestamp
                     });
 
                     fetch("/checkpoint/challenge",

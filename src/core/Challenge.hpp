@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <chrono>
 
 class CChallenge {
   public:
@@ -10,17 +11,20 @@ class CChallenge {
     std::string fingerprint() const;
     std::string challenge() const;
     std::string signature() const;
+    std::string timestampAsString() const;
     bool        valid() const;
 
   private:
-    std::string getSigString();
+    std::string                           getSigString();
 
-    std::string m_sig, m_fingerprint, m_challenge;
-    bool        m_valid      = false;
-    int         m_difficulty = 4;
+    std::string                           m_sig, m_fingerprint, m_challenge;
+    bool                                  m_valid      = false;
+    int                                   m_difficulty = 4;
+
+    std::chrono::system_clock::time_point m_issued;
 
     struct SChallengeJSON {
-        std::string fingerprint, challenge, sig;
+        std::string fingerprint, challenge, sig, timestamp;
         int         difficulty = 4, solution = 0;
     };
 };

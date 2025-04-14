@@ -296,6 +296,7 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
     page.add("challengeNonce", CTinylatesProp(NONCE));
     page.add("challengeSignature", CTinylatesProp(CHALLENGE.signature()));
     page.add("challengeFingerprint", CTinylatesProp(CHALLENGE.fingerprint()));
+    page.add("challengeTimestamp", CTinylatesProp(CHALLENGE.timestampAsString()));
     page.add("checkpointVersion", CTinylatesProp(CHECKPOINT_VERSION));
     response.send(Pistache::Http::Code::Ok, page.render().value_or("error"));
 }
