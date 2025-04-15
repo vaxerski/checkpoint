@@ -35,7 +35,7 @@ target_include_directories(checkpoint
 PRIVATE
    "./subprojects/pistache/include"
    "./subprojects/glaze/include"
-   "./subprojects/re2/include"
+   "./subprojects/re2"
    "./subprojects/tinylates/include"
    "./subprojects/pistache/subprojects/cpp-httplib"
    "./subprojects/pistache/subprojects/hinnant-date/include"
