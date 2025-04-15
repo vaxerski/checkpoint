@@ -11,15 +11,19 @@ class CServerHandler : public Pistache::Http::Handler {
 
     HTTP_PROTOTYPE(CServerHandler)
 
+    void init();
+    void finish();
+
     void onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response);
 
     void onTimeout(const Pistache::Http::Request& request, Pistache::Http::ResponseWriter response);
 
   private:
-    void        serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
+    void        serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, int difficulty);
     void        proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
     void        challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
     std::string fingerprintForRequest(const Pistache::Http::Request& req);
+    std::string ipForRequest(const Pistache::Http::Request& req);
 
     bool        isResourceCheckpoint(const std::string_view& res);
 
@@ -33,4 +37,6 @@ class CServerHandler : public Pistache::Http::Handler {
         std::string token   = "";
         std::string error   = "";
     };
+
+    Pistache::Http::Experimental::Client* m_client = nullptr;
 };

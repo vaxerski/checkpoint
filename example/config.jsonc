@@ -2,13 +2,14 @@
     // where the html files are located
     "html_dir": "./html",
 
-    // where the proxy should store its db (directory)
+    // where the proxy should store its private signing key (directory)
     "data_dir": "./data",
 
     // what port the proxy should listen on
     "port": 3001,
 
-    // what address should the proxy pass after successful verification
+    // what address should the proxy pass after successful verification. DO NOT add a / at the end or http(s)://.
+    // this address should be local (127.0.0.1). Other configurations are not supported.
     "forward_address": "127.0.0.1:3000",
 
     // max request size of 10MB
@@ -18,5 +19,24 @@
     "proxy_timeout_sec": 120,
 
     // enables (a lot) more logging
-    "trace_logging": false
+    "trace_logging": false,
+
+    // the default difficulty for the challenge. 4 takes less than a second on a powerful desktop, and up to 15s on a low-powered phone.
+    // 5 is 16x slower.
+    // NOT recommended to set to anything below 4 or above 5.
+    "default_challenge_difficulty": 4,
+
+    // specific ip range configs.
+    "ip_configs": [
+        {
+            "action": "ALLOW",
+            "ip_ranges": [
+                "127.0.0.1/24",
+                "::1/128"
+            ],
+            // if this regex matches the resource requested, a different rule will be applied
+            "exclude_regex": ".*/commit/.*",
+            "action_on_exclude": "DENY"
+        }
+    ]
 }

@@ -5,10 +5,11 @@
 #include <fmt/format.h>
 #include <glaze/glaze.hpp>
 
-constexpr const uint64_t CHALLENGE_VERSION = 1;
+constexpr const uint64_t CHALLENGE_VERSION       = 2;
+constexpr const uint64_t CHALLENGE_EXPIRE_TIME_S = 600; // 10 minutes
 
 CChallenge::CChallenge(const std::string& fingerprint, const std::string& challenge, int difficulty) :
-    m_fingerprint(fingerprint), m_challenge(challenge), m_difficulty(difficulty) {
+    m_fingerprint(fingerprint), m_challenge(challenge), m_difficulty(difficulty), m_issued(std::chrono::system_clock::now()) {
     std::string toSign = getSigString();
 
     m_sig = g_pCrypto->sign(toSign);
@@ -27,6 +28,10 @@ CChallenge::CChallenge(const std::string& jsonResponse) {
     m_challenge   = s.challenge;
     m_fingerprint = s.fingerprint;
     m_sig         = s.sig;
+
+    try {
+        m_issued = std::chrono::system_clock::time_point(std::chrono::seconds(std::stoull(s.timestamp)));
+    } catch (std::exception& e) { return; }
 
     if (!g_pCrypto->verifySignature(getSigString(), m_sig))
         return;
@@ -54,9 +59,13 @@ std::string CChallenge::signature() const {
 }
 
 bool CChallenge::valid() const {
-    return m_valid;
+    return m_valid && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - m_issued).count() < CHALLENGE_EXPIRE_TIME_S;
 }
 
 std::string CChallenge::getSigString() {
-    return fmt::format("{}-{},{}", CHALLENGE_VERSION, m_fingerprint, m_challenge);
+    return fmt::format("{}-{},{},{}", CHALLENGE_VERSION, m_fingerprint, m_challenge, std::chrono::duration_cast<std::chrono::seconds>(m_issued.time_since_epoch()).count());
+}
+
+std::string CChallenge::timestampAsString() const {
+    return std::to_string(std::chrono::duration_cast<std::chrono::seconds>(m_issued.time_since_epoch()).count());
 }

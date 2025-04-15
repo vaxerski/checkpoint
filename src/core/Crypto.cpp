@@ -3,9 +3,9 @@
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
 #include "../debug/log.hpp"
+#include "../helpers/FsUtils.hpp"
 
 #include <filesystem>
-#include <fstream>
 #include <vector>
 #include <string_view>
 
@@ -16,28 +16,15 @@
 
 constexpr const char* KEY_FILENAME = "privateKey.key";
 
-static std::string    dataDir() {
-    static const std::string dir = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.data_dir).string();
-    return dir;
-}
-
-static std::string readFileAsText(const std::string& path) {
-    std::ifstream ifs(path);
-    auto          res = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
-    if (res.back() == '\n')
-        res.pop_back();
-    return res;
-}
-
 CCrypto::CCrypto() {
-    if (!std::filesystem::exists(dataDir() + "/" + KEY_FILENAME)) {
+    if (!std::filesystem::exists(NFsUtils::dataDir() + "/" + KEY_FILENAME)) {
         Debug::log(LOG, "No private key, generating one.");
         if (!genKey()) {
             Debug::log(CRIT, "Couldn't generate a key.");
             throw std::runtime_error("Keygen failed");
         }
     } else {
-        auto f = fopen((dataDir() + "/" + KEY_FILENAME).c_str(), "r");
+        auto f = fopen((NFsUtils::dataDir() + "/" + KEY_FILENAME).c_str(), "r");
         PEM_read_PrivateKey(f, &m_evpPkey, nullptr, nullptr);
         fclose(f);
     }
@@ -98,7 +85,7 @@ std::string CCrypto::sha256(const std::string& in) {
 }
 
 bool CCrypto::genKey() {
-    EVP_PKEY_CTX* ctx  = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
 
     if (!ctx)
         return false;
@@ -113,7 +100,7 @@ bool CCrypto::genKey() {
         return false;
     }
 
-    auto f = fopen((dataDir() + "/" + KEY_FILENAME).c_str(), "w");
+    auto f = fopen((NFsUtils::dataDir() + "/" + KEY_FILENAME).c_str(), "w");
     PEM_write_PrivateKey(f, m_evpPkey, nullptr, nullptr, 0, nullptr, nullptr);
     fclose(f);
 
@@ -178,7 +165,7 @@ bool CCrypto::verifySignature(const std::string& in, const std::string& sig) {
 
     auto sigAsArr = toByteArr(sig);
 
-    int ret = EVP_DigestVerify(ctx, sigAsArr.data(), sigAsArr.size(), (const unsigned char*)in.c_str(), in.size());
+    int  ret = EVP_DigestVerify(ctx, sigAsArr.data(), sigAsArr.size(), (const unsigned char*)in.c_str(), in.size());
 
     if (ret == 1) {
         // match

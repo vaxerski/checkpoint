@@ -8,11 +8,12 @@
 #include "../headers/gitProtocolHeader.hpp"
 #include "../headers/acceptLanguageHeader.hpp"
 #include "../headers/setCookieHeader.hpp"
+#include "../headers/xrealip.hpp"
 #include "../debug/log.hpp"
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
+#include "../helpers/FsUtils.hpp"
 
-#include <fstream>
 #include <filesystem>
 #include <random>
 #include <sstream>
@@ -26,13 +27,6 @@ constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
 constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
 
 //
-static std::string readFileAsText(const std::string& path) {
-    std::ifstream ifs(path);
-    auto          res = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
-    if (res.back() == '\n')
-        res.pop_back();
-    return res;
-}
 
 static std::string generateNonce() {
     static std::random_device       dev;
@@ -60,20 +54,26 @@ static std::string generateToken() {
     return ss.str();
 }
 
+void CServerHandler::init() {
+    m_client = new Pistache::Http::Experimental::Client();
+    m_client->init(Pistache::Http::Experimental::Client::options().maxConnectionsPerHost(32).maxResponseSize(g_pConfig->m_config.max_request_size).threads(4));
+}
+
+void CServerHandler::finish() {
+    if (!m_client)
+        return;
+    m_client->shutdown();
+    delete m_client;
+    m_client = nullptr;
+}
+
 std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request& req) {
     const auto                                                    HEADERS = req.headers();
     std::shared_ptr<const Pistache::Http::Header::AcceptEncoding> acceptEncodingHeader;
     std::shared_ptr<const Pistache::Http::Header::UserAgent>      userAgentHeader;
-    std::shared_ptr<const CFConnectingIPHeader>                   cfHeader;
     std::shared_ptr<const AcceptLanguageHeader>                   languageHeader;
 
     std::string                                                   input = "checkpoint-";
-
-    try {
-        cfHeader = Pistache::Http::Header::header_cast<CFConnectingIPHeader>(HEADERS.get("cf-connecting-ip"));
-    } catch (std::exception& e) {
-        ; // silent ignore
-    }
 
     try {
         acceptEncodingHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::AcceptEncoding>(HEADERS.get("Accept-Encoding"));
@@ -93,8 +93,7 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
         ; // silent ignore
     }
 
-    if (cfHeader)
-        input += cfHeader->ip();
+    input += ipForRequest(req);
     // TODO: those seem to change. Find better things to hash.
     // if (acceptEncodingHeader)
     //     input += HEADERS.getRaw("Accept-Encoding").value();
@@ -103,13 +102,36 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
     if (userAgentHeader)
         input += userAgentHeader->agent();
 
-    input += req.address().host();
-
     return g_pCrypto->sha256(input);
 }
 
 bool CServerHandler::isResourceCheckpoint(const std::string_view& res) {
     return res == "/checkpoint/NotoSans.woff";
+}
+
+std::string CServerHandler::ipForRequest(const Pistache::Http::Request& req) {
+    std::shared_ptr<const CFConnectingIPHeader> cfHeader;
+    std::shared_ptr<const XRealIPHeader>        xRealIPHeader;
+
+    try {
+        cfHeader = Pistache::Http::Header::header_cast<CFConnectingIPHeader>(req.headers().get("cf-connecting-ip"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    try {
+        xRealIPHeader = Pistache::Http::Header::header_cast<XRealIPHeader>(req.headers().get("X-Real-IP"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    if (cfHeader)
+        return cfHeader->ip();
+
+    if (xRealIPHeader)
+        return xRealIPHeader->ip();
+
+    return req.address().host();
 }
 
 void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response) {
@@ -168,11 +190,9 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
     Debug::log(LOG, "New request: {}:{}{}", hostHeader->host(), hostHeader->port().toString(), req.resource());
 
-    Debug::log(LOG, " | Request author: IP {}", req.address().host());
-    if (cfHeader)
-        Debug::log(LOG, " | CloudFlare reports IP: {}", cfHeader->ip());
-    else
-        Debug::log(TRACE, "Connection does not come through CloudFlare");
+    const auto REQUEST_IP = ipForRequest(req);
+
+    Debug::log(LOG, " | Request author: IP {}, direct: {}", REQUEST_IP, req.address().host());
 
     if (userAgentHeader)
         Debug::log(LOG, " | UA: {}", userAgentHeader->agent());
@@ -186,8 +206,8 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     }
 
     if (isResourceCheckpoint(req.resource())) {
-        response.send(Pistache::Http::Code::Ok,
-                      readFileAsText(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir + "/" + req.resource().substr(req.resource().find("checkpoint/") + 11)));
+        // no directory traversal is possible when resource is checkpoint
+        response.send(Pistache::Http::Code::Ok, NFsUtils::readFileAsString(NFsUtils::htmlPath(req.resource().substr(req.resource().find("checkpoint/") + 11))).value());
         return;
     }
 
@@ -220,6 +240,59 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         }
     }
 
+    int challengeDifficulty = g_pConfig->m_config.default_challenge_difficulty;
+
+    if (!g_pConfig->m_parsedConfigDatas.ip_configs.empty()) {
+        const auto IP = CIP(REQUEST_IP);
+        for (const auto& ic : g_pConfig->m_parsedConfigDatas.ip_configs) {
+            bool matched = false;
+
+            for (const auto& ipr : ic.ip_ranges) {
+                if (!ipr.ipMatches(IP))
+                    continue;
+
+                matched = true;
+                break;
+            }
+
+            if (matched) {
+                if (ic.difficulty != -1)
+                    challengeDifficulty = ic.difficulty;
+
+                // if we have an exclude regex and it matches the resource, skip this rule
+                if (ic.exclude_regex && RE2::FullMatch(req.resource(), *ic.exclude_regex)) {
+                    if (ic.action_on_exclude == CConfig::IP_ACTION_ALLOW) {
+                        Debug::log(LOG, " | Action: PASS (ip rule matched for {}, excluded resource, exclude action is PASS)", REQUEST_IP);
+                        proxyPass(req, response);
+                        return;
+                    } else if (ic.action_on_exclude == CConfig::IP_ACTION_DENY) {
+                        Debug::log(LOG, " | Action: DENY (ip rule matched for {}, excluded resource, exclude action is DENY)", REQUEST_IP);
+                        response.send(Pistache::Http::Code::Forbidden, "Forbidden");
+                        return;
+                    } else if (ic.action_on_exclude == CConfig::IP_ACTION_CHALLENGE) {
+                        Debug::log(LOG, " | ip rule matched for {}, excluded resource, exclude action is CHALLENGE", REQUEST_IP);
+                        break;
+                    }
+                    Debug::log(LOG, " | ip rule matched for {}, excluded resource, exclude action is NONE", REQUEST_IP);
+                    continue;
+                }
+
+                if (ic.action == CConfig::IP_ACTION_ALLOW) {
+                    Debug::log(LOG, " | Action: PASS (ip rule matched for {})", REQUEST_IP);
+                    proxyPass(req, response);
+                    return;
+                } else if (ic.action == CConfig::IP_ACTION_DENY) {
+                    Debug::log(LOG, " | Action: DENY (ip rule matched for {})", REQUEST_IP);
+                    response.send(Pistache::Http::Code::Forbidden, "Forbidden");
+                    return;
+                }
+
+                // if it's challenge then it's default so just set the difficulty if applicable and proceed
+                break;
+            }
+        }
+    }
+
     if (req.cookies().has(TOKEN_COOKIE_NAME)) {
         // check the token
         const auto TOKEN = CToken(req.cookies().get(TOKEN_COOKIE_NAME).value);
@@ -241,7 +314,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     } else
         Debug::log(LOG, " | Action: CHALLENGE (no token)");
 
-    serveStop(req, response);
+    serveStop(req, response, challengeDifficulty);
 }
 
 void CServerHandler::onTimeout(const Pistache::Http::Request& request, Pistache::Http::ResponseWriter response) {
@@ -281,21 +354,20 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
     response.send(Pistache::Http::Code::Ok, "Ok");
 }
 
-void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    static const auto PATH       = std::filesystem::canonical(g_pGlobalState->cwd + "/" + g_pConfig->m_config.html_dir).string();
-    static const auto PAGE_INDEX = readFileAsText(PATH + "/index.min.html");
+void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, int difficulty) {
+    static const auto PAGE_INDEX = NFsUtils::readFileAsString(NFsUtils::htmlPath("/index.min.html")).value();
+    static const auto PAGE_ROOT  = PAGE_INDEX.substr(0, PAGE_INDEX.find_last_of("/") + 1);
     CTinylates        page(PAGE_INDEX);
-    page.setTemplateRoot(PATH);
+    page.setTemplateRoot(PAGE_ROOT);
 
-    const auto NONCE      = generateNonce();
-    const auto DIFFICULTY = 4;
+    const auto NONCE     = generateNonce();
+    const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, difficulty);
 
-    const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, DIFFICULTY);
-
-    page.add("challengeDifficulty", CTinylatesProp(std::to_string(DIFFICULTY)));
+    page.add("challengeDifficulty", CTinylatesProp(std::to_string(difficulty)));
     page.add("challengeNonce", CTinylatesProp(NONCE));
     page.add("challengeSignature", CTinylatesProp(CHALLENGE.signature()));
     page.add("challengeFingerprint", CTinylatesProp(CHALLENGE.fingerprint()));
+    page.add("challengeTimestamp", CTinylatesProp(CHALLENGE.timestampAsString()));
     page.add("checkpointVersion", CTinylatesProp(CHECKPOINT_VERSION));
     response.send(Pistache::Http::Code::Ok, page.render().value_or("error"));
 }
@@ -305,10 +377,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
 
     Debug::log(TRACE, "Method ({}): Forwarding to {}", (uint32_t)req.method(), FORWARD_ADDR + req.resource());
 
-    Pistache::Http::Experimental::Client client;
-    client.init(Pistache::Http::Experimental::Client::options().maxConnectionsPerHost(8).maxResponseSize(g_pConfig->m_config.max_request_size).threads(1));
-
-    auto builder = client.prepareRequest(FORWARD_ADDR + req.resource(), req.method());
+    auto builder = m_client->prepareRequest(FORWARD_ADDR + req.resource(), req.method());
     builder.body(req.body());
     for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
         builder.cookie(*it);
@@ -316,8 +385,8 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
     builder.params(req.query());
     const auto HEADERS = req.headers().list();
     for (auto& h : HEADERS) {
-        // FIXME: why does this break e.g. gitea if we include it?
-        if (std::string_view{h->name()} == "Cache-Control" || std::string_view{h->name()} == "Connection") {
+        const auto HNAME = std::string_view{h->name()};
+        if (HNAME == "Cache-Control" || HNAME == "Connection" || HNAME == "Content-Length") {
             Debug::log(TRACE, "Header in: {}: {} (DROPPED)", h->name(), req.headers().getRaw(h->name()).value());
             continue;
         }
@@ -349,7 +418,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
             for (auto it = resp.cookies().begin(); it != resp.cookies().end(); ++it) {
                 std::stringstream ss;
                 ss << *it;
-                response.headers().add(std::make_shared<SetCookieHeader>(ss.str()));
+                response.cookies().add(*it);
 
                 Debug::log(TRACE, "Header out: Set-Cookie: {}", ss.str());
             }
@@ -369,6 +438,4 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
         });
     Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
     b.wait_for(std::chrono::seconds(g_pConfig->m_config.proxy_timeout_sec));
-
-    client.shutdown();
 }
