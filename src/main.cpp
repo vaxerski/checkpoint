@@ -14,6 +14,7 @@
 #include "headers/gitProtocolHeader.hpp"
 #include "headers/acceptLanguageHeader.hpp"
 #include "headers/setCookieHeader.hpp"
+#include "headers/xrealip.hpp"
 
 #include "debug/log.hpp"
 
@@ -78,6 +79,7 @@ int main(int argc, char** argv, char** envp) {
     Pistache::Http::Header::Registry::instance().registerHeader<GitProtocolHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<AcceptLanguageHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<SetCookieHeader>();
+    Pistache::Http::Header::Registry::instance().registerHeader<XRealIPHeader>();
 
     g_pCrypto = std::make_unique<CCrypto>();
 

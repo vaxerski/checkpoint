@@ -8,6 +8,7 @@
 #include "../headers/gitProtocolHeader.hpp"
 #include "../headers/acceptLanguageHeader.hpp"
 #include "../headers/setCookieHeader.hpp"
+#include "../headers/xrealip.hpp"
 #include "../debug/log.hpp"
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
@@ -57,16 +58,9 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
     const auto                                                    HEADERS = req.headers();
     std::shared_ptr<const Pistache::Http::Header::AcceptEncoding> acceptEncodingHeader;
     std::shared_ptr<const Pistache::Http::Header::UserAgent>      userAgentHeader;
-    std::shared_ptr<const CFConnectingIPHeader>                   cfHeader;
     std::shared_ptr<const AcceptLanguageHeader>                   languageHeader;
 
     std::string                                                   input = "checkpoint-";
-
-    try {
-        cfHeader = Pistache::Http::Header::header_cast<CFConnectingIPHeader>(HEADERS.get("cf-connecting-ip"));
-    } catch (std::exception& e) {
-        ; // silent ignore
-    }
 
     try {
         acceptEncodingHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::AcceptEncoding>(HEADERS.get("Accept-Encoding"));
@@ -86,8 +80,7 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
         ; // silent ignore
     }
 
-    if (cfHeader)
-        input += cfHeader->ip();
+    input += ipForRequest(req);
     // TODO: those seem to change. Find better things to hash.
     // if (acceptEncodingHeader)
     //     input += HEADERS.getRaw("Accept-Encoding").value();
@@ -96,13 +89,36 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
     if (userAgentHeader)
         input += userAgentHeader->agent();
 
-    input += req.address().host();
-
     return g_pCrypto->sha256(input);
 }
 
 bool CServerHandler::isResourceCheckpoint(const std::string_view& res) {
     return res == "/checkpoint/NotoSans.woff";
+}
+
+std::string CServerHandler::ipForRequest(const Pistache::Http::Request& req) {
+    std::shared_ptr<const CFConnectingIPHeader> cfHeader;
+    std::shared_ptr<const XRealIPHeader>        xRealIPHeader;
+
+    try {
+        cfHeader = Pistache::Http::Header::header_cast<CFConnectingIPHeader>(req.headers().get("cf-connecting-ip"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    try {
+        xRealIPHeader = Pistache::Http::Header::header_cast<XRealIPHeader>(req.headers().get("X-Real-IP"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    if (cfHeader)
+        return cfHeader->ip();
+
+    if (xRealIPHeader)
+        return xRealIPHeader->ip();
+
+    return req.address().host();
 }
 
 void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response) {
@@ -161,11 +177,9 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
     Debug::log(LOG, "New request: {}:{}{}", hostHeader->host(), hostHeader->port().toString(), req.resource());
 
-    Debug::log(LOG, " | Request author: IP {}", req.address().host());
-    if (cfHeader)
-        Debug::log(LOG, " | CloudFlare reports IP: {}", cfHeader->ip());
-    else
-        Debug::log(TRACE, "Connection does not come through CloudFlare");
+    const auto REQUEST_IP = ipForRequest(req);
+
+    Debug::log(LOG, " | Request author: IP {}, direct: {}", REQUEST_IP, req.address().host());
 
     if (userAgentHeader)
         Debug::log(LOG, " | UA: {}", userAgentHeader->agent());
@@ -216,7 +230,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     int challengeDifficulty = g_pConfig->m_config.default_challenge_difficulty;
 
     if (!g_pConfig->m_parsedConfigDatas.ip_configs.empty()) {
-        const auto IP = CIP(req.address().host());
+        const auto IP = CIP(REQUEST_IP);
         for (const auto& ic : g_pConfig->m_parsedConfigDatas.ip_configs) {
             bool matched = false;
 
@@ -230,11 +244,11 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
             if (matched) {
                 if (ic.action == CConfig::IP_ACTION_ALLOW) {
-                    Debug::log(LOG, " | Action: PASS (ip rule matched for {})", req.address().host());
+                    Debug::log(LOG, " | Action: PASS (ip rule matched for {})", REQUEST_IP);
                     proxyPass(req, response);
                     return;
                 } else if (ic.action == CConfig::IP_ACTION_DENY) {
-                    Debug::log(LOG, " | Action: DENY (ip rule matched for {})", req.address().host());
+                    Debug::log(LOG, " | Action: DENY (ip rule matched for {})", REQUEST_IP);
                     response.send(Pistache::Http::Code::Forbidden, "Forbidden");
                     return;
                 }

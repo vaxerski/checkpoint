@@ -20,6 +20,7 @@ class CServerHandler : public Pistache::Http::Handler {
     void        proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
     void        challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
     std::string fingerprintForRequest(const Pistache::Http::Request& req);
+    std::string ipForRequest(const Pistache::Http::Request& req);
 
     bool        isResourceCheckpoint(const std::string_view& res);
 
