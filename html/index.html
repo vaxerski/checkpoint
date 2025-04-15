@@ -195,7 +195,14 @@
             STOP!
         </p>
         <hr class="text-hr" />
-        <p class="text-description">
+
+        <noscript>
+            <p class="text-description">
+                This website uses <a href="https://github.com/vaxerski/checkpoint">checkpoint</a> and requires javascript. Please enable javascript to complete the Proof of Work challenge.
+            </p>
+        </noscript>
+
+        <p class="text-description require-js">
             Verifying that you are not a bot. This might take a short moment.
 
             <br />
@@ -204,18 +211,18 @@
             You do not need to do anything.
         </p>
 
-        <p class="text-question">
+        <p class="text-question require-js">
             Why am I seeing this?
         </p>
 
-        <hr class="text-hr-small" />
+        <hr class="text-hr-small require-js" />
 
-        <p class="text-description">
+        <p class="text-description require-js">
             This website protects itself from AI bots and scrapers
             by asking you to complete a cryptographic challenge before allowing you entry.
         </p>
 
-        <div class="bottom-bar">
+        <div class="bottom-bar require-js">
             <div class="bottom-progress">
                 <div class="bottom-progress-light" name="progress-light"></div>
             </div>
@@ -229,6 +236,14 @@
             </a>
         </div>
     </div>
+
+    <noscript>
+        <style>
+            .require-js {
+                display: none;
+            }
+        </style>
+    </noscript>
 
     <script type="text/javascript">
         setTimeout(
