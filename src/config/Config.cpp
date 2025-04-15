@@ -9,6 +9,9 @@
 
 static CConfig::eConfigIPAction strToAction(const std::string& s) {
     // TODO: allow any case I'm lazy it's 1am
+    if (s.empty())
+        return CConfig::IP_ACTION_NONE;
+
     if (s == "ALLOW" || s == "allow" || s == "Allow")
         return CConfig::IP_ACTION_ALLOW;
     if (s == "Deny" || s == "deny" || s == "Deny")
@@ -16,7 +19,8 @@ static CConfig::eConfigIPAction strToAction(const std::string& s) {
     if (s == "CHALLENGE" || s == "challenge" || s == "Challenge")
         return CConfig::IP_ACTION_CHALLENGE;
 
-    throw std::runtime_error("Invalid ip config action");
+    Debug::log(ERR, "Invalid action: {}, assuming NONE", s);
+    return CConfig::IP_ACTION_NONE;
 }
 
 CConfig::CConfig() {
@@ -31,8 +35,9 @@ CConfig::CConfig() {
     // parse some datas
     for (const auto& ic : m_config.ip_configs) {
         SIPRangeConfigParsed parsed;
-        parsed.action     = strToAction(ic.action);
-        parsed.difficulty = ic.difficulty;
+        parsed.action            = strToAction(ic.action);
+        parsed.difficulty        = ic.difficulty;
+        parsed.action_on_exclude = strToAction(ic.action_on_exclude);
 
         if (!ic.exclude_regex.empty()) {
             parsed.exclude_regex = std::make_unique<re2::RE2>(ic.exclude_regex);

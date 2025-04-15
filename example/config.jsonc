@@ -34,8 +34,9 @@
                 "127.0.0.1/24",
                 "::1/128"
             ],
-            // if this regex matches the resource requested, this rule will not be applied
-            "exclude_regex": ".*/commit/.*"
+            // if this regex matches the resource requested, a different rule will be applied
+            "exclude_regex": ".*/commit/.*",
+            "action_on_exclude": "DENY"
         }
     ]
 }

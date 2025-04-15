@@ -12,7 +12,8 @@ class CConfig {
     CConfig();
 
     enum eConfigIPAction : uint8_t {
-        IP_ACTION_DENY = 0,
+        IP_ACTION_NONE = 0,
+        IP_ACTION_DENY,
         IP_ACTION_ALLOW,
         IP_ACTION_CHALLENGE
     };
@@ -20,8 +21,9 @@ class CConfig {
     struct SIPRangeConfig {
         std::string              action = "";
         std::vector<std::string> ip_ranges;
-        int                      difficulty    = -1;
-        std::string              exclude_regex = "";
+        int                      difficulty        = -1;
+        std::string              exclude_regex     = "";
+        std::string              action_on_exclude = "";
     };
 
     struct SIPRangeConfigParsed {
@@ -29,6 +31,7 @@ class CConfig {
         std::vector<CIPRange>     ip_ranges;
         int                       difficulty = -1;
         std::unique_ptr<re2::RE2> exclude_regex;
+        eConfigIPAction           action_on_exclude = IP_ACTION_NONE;
     };
 
     struct SConfig {

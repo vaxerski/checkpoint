@@ -248,7 +248,19 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
                 // if we have an exclude regex and it matches the resource, skip this rule
                 if (ic.exclude_regex && RE2::FullMatch(req.resource(), *ic.exclude_regex)) {
-                    Debug::log(LOG, " | ip rule matched for {}, but resource is excluded.", REQUEST_IP);
+                    if (ic.action_on_exclude == CConfig::IP_ACTION_ALLOW) {
+                        Debug::log(LOG, " | Action: PASS (ip rule matched for {}, excluded resource, exclude action is PASS)", REQUEST_IP);
+                        proxyPass(req, response);
+                        return;
+                    } else if (ic.action_on_exclude == CConfig::IP_ACTION_DENY) {
+                        Debug::log(LOG, " | Action: DENY (ip rule matched for {}, excluded resource, exclude action is DENY)", REQUEST_IP);
+                        response.send(Pistache::Http::Code::Forbidden, "Forbidden");
+                        return;
+                    } else if (ic.action_on_exclude == CConfig::IP_ACTION_CHALLENGE) {
+                        Debug::log(LOG, " | ip rule matched for {}, excluded resource, exclude action is CHALLENGE", REQUEST_IP);
+                        break;
+                    }
+                    Debug::log(LOG, " | ip rule matched for {}, excluded resource, exclude action is NONE", REQUEST_IP);
                     continue;
                 }
 
