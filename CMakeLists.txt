@@ -29,13 +29,12 @@ add_compile_definitions(CHECKPOINT_VERSION="${CHECKPOINT_VERSION}")
 
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(deps IMPORTED_TARGET openssl)
+pkg_check_modules(deps IMPORTED_TARGET openssl re2)
 
 target_include_directories(checkpoint
 PRIVATE
    "./subprojects/pistache/include"
    "./subprojects/glaze/include"
-   "./subprojects/re2"
    "./subprojects/tinylates/include"
    "./subprojects/pistache/subprojects/cpp-httplib"
    "./subprojects/pistache/subprojects/hinnant-date/include"
@@ -44,6 +43,5 @@ target_link_libraries(checkpoint
     PkgConfig::deps
     pistache
     fmt
-    re2
     tinylates
 )

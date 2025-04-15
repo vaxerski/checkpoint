@@ -26,7 +26,7 @@ If you are using this, it's almost certain search engines will stop indexing you
 
 ## Setup guide
 
-1. Clone and build this repo. You will need `openssl`, `g++>=12`, and deps for `pistache`, `fmt` and `tinylates`.
+1. Clone and build this repo. You will need `openssl`, `g++>=12`, `re2`, and deps for `pistache`, `fmt` and `tinylates`.
 2. Create a `config.jsonc`. An example one is in `example/`.
 3. Adjust the config to your needs. Options are documented with comments in the example config.
 4. Set up your IP rules if you want. These allow you to set up IPs that are automatically blocked, or allowed to access without a challenge. This is useful for e.g. search engine scrapers. Some IP ranges can be found in `example/index_bots.jsonc`.
