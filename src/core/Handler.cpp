@@ -54,6 +54,19 @@ static std::string generateToken() {
     return ss.str();
 }
 
+void CServerHandler::init() {
+    m_client = new Pistache::Http::Experimental::Client();
+    m_client->init(Pistache::Http::Experimental::Client::options().maxConnectionsPerHost(32).maxResponseSize(g_pConfig->m_config.max_request_size).threads(4));
+}
+
+void CServerHandler::finish() {
+    if (!m_client)
+        return;
+    m_client->shutdown();
+    delete m_client;
+    m_client = nullptr;
+}
+
 std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request& req) {
     const auto                                                    HEADERS = req.headers();
     std::shared_ptr<const Pistache::Http::Header::AcceptEncoding> acceptEncodingHeader;
@@ -364,10 +377,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
 
     Debug::log(TRACE, "Method ({}): Forwarding to {}", (uint32_t)req.method(), FORWARD_ADDR + req.resource());
 
-    Pistache::Http::Experimental::Client client;
-    client.init(Pistache::Http::Experimental::Client::options().maxConnectionsPerHost(8).maxResponseSize(g_pConfig->m_config.max_request_size).threads(1));
-
-    auto builder = client.prepareRequest(FORWARD_ADDR + req.resource(), req.method());
+    auto builder = m_client->prepareRequest(FORWARD_ADDR + req.resource(), req.method());
     builder.body(req.body());
     for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
         builder.cookie(*it);
@@ -428,6 +438,4 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
         });
     Pistache::Async::Barrier<Pistache::Http::Response> b(resp);
     b.wait_for(std::chrono::seconds(g_pConfig->m_config.proxy_timeout_sec));
-
-    client.shutdown();
 }
