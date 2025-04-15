@@ -376,7 +376,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
             for (auto it = resp.cookies().begin(); it != resp.cookies().end(); ++it) {
                 std::stringstream ss;
                 ss << *it;
-                response.headers().add(std::make_shared<SetCookieHeader>(ss.str()));
+                response.cookies().add(*it);
 
                 Debug::log(TRACE, "Header out: Set-Cookie: {}", ss.str());
             }
