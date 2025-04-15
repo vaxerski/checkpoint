@@ -213,6 +213,40 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         }
     }
 
+    int challengeDifficulty = g_pConfig->m_config.default_challenge_difficulty;
+
+    if (!g_pConfig->m_parsedConfigDatas.ip_configs.empty()) {
+        const auto IP = CIP(req.address().host());
+        for (const auto& ic : g_pConfig->m_parsedConfigDatas.ip_configs) {
+            bool matched = false;
+
+            for (const auto& ipr : ic.ip_ranges) {
+                if (!ipr.ipMatches(IP))
+                    continue;
+
+                matched = true;
+                break;
+            }
+
+            if (matched) {
+                if (ic.action == CConfig::IP_ACTION_ALLOW) {
+                    Debug::log(LOG, " | Action: PASS (ip rule matched for {})", req.address().host());
+                    proxyPass(req, response);
+                    return;
+                } else if (ic.action == CConfig::IP_ACTION_DENY) {
+                    Debug::log(LOG, " | Action: DENY (ip rule matched for {})", req.address().host());
+                    response.send(Pistache::Http::Code::Forbidden, "Forbidden");
+                    return;
+                }
+
+                // if it's challenge then it's default so just set the difficulty if applicable and proceed
+                if (ic.difficulty != -1)
+                    challengeDifficulty = ic.difficulty;
+                break;
+            }
+        }
+    }
+
     if (req.cookies().has(TOKEN_COOKIE_NAME)) {
         // check the token
         const auto TOKEN = CToken(req.cookies().get(TOKEN_COOKIE_NAME).value);
@@ -234,7 +268,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     } else
         Debug::log(LOG, " | Action: CHALLENGE (no token)");
 
-    serveStop(req, response);
+    serveStop(req, response, challengeDifficulty);
 }
 
 void CServerHandler::onTimeout(const Pistache::Http::Request& request, Pistache::Http::ResponseWriter response) {
@@ -274,18 +308,16 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
     response.send(Pistache::Http::Code::Ok, "Ok");
 }
 
-void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
+void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, int difficulty) {
     static const auto PAGE_INDEX = NFsUtils::readFileAsString(NFsUtils::htmlPath("/index.min.html")).value();
     static const auto PAGE_ROOT  = PAGE_INDEX.substr(0, PAGE_INDEX.find_last_of("/") + 1);
     CTinylates        page(PAGE_INDEX);
     page.setTemplateRoot(PAGE_ROOT);
 
-    const auto NONCE      = generateNonce();
-    const auto DIFFICULTY = 4;
+    const auto NONCE     = generateNonce();
+    const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, difficulty);
 
-    const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, DIFFICULTY);
-
-    page.add("challengeDifficulty", CTinylatesProp(std::to_string(DIFFICULTY)));
+    page.add("challengeDifficulty", CTinylatesProp(std::to_string(difficulty)));
     page.add("challengeNonce", CTinylatesProp(NONCE));
     page.add("challengeSignature", CTinylatesProp(CHALLENGE.signature()));
     page.add("challengeFingerprint", CTinylatesProp(CHALLENGE.fingerprint()));
