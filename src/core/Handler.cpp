@@ -386,7 +386,7 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
     const auto HEADERS = req.headers().list();
     for (auto& h : HEADERS) {
         const auto HNAME = std::string_view{h->name()};
-        if (HNAME == "Cache-Control" || HNAME == "Connection" || HNAME == "Content-Length") {
+        if (HNAME == "Cache-Control" || HNAME == "Connection" || HNAME == "Content-Length" || HNAME == "Accept-Encoding") {
             Debug::log(TRACE, "Header in: {}: {} (DROPPED)", h->name(), req.headers().getRaw(h->name()).value());
             continue;
         }
@@ -423,6 +423,8 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
                 Debug::log(TRACE, "Header out: Set-Cookie: {}", ss.str());
             }
 
+            auto enc = req.getBestAcceptEncoding();
+            response.setCompression(enc);
             response.send(resp.code(), resp.body());
         },
         [&](std::exception_ptr e) {
