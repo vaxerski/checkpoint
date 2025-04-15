@@ -13,6 +13,7 @@ AI scrapers are everywhere. This will stop them. `robots.txt` won't.
 - Easy configuration in jsonc
 - Support for cloudflare
 - Support for IP-Range based rules (both ipv4 and ipv6)
+- Support for async (multithreaded) request handling
 - Minimal. The waiting page is tiny and light on network usage.
 
 ### Planned features

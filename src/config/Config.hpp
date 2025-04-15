@@ -45,6 +45,10 @@ class CConfig {
         bool                        trace_logging     = false;
         std::vector<SIPRangeConfig> ip_configs;
         int                         default_challenge_difficulty = 4;
+
+        struct {
+            bool async_proxy = false;
+        } experimental;
     } m_config;
 
     struct {

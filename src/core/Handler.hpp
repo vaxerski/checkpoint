@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pistache/http.h>
+#include <mutex>
 
 // Giga hack, but we need it cuz the API is quite awkward and incomplete
 #define private public
@@ -11,9 +12,6 @@ class CServerHandler : public Pistache::Http::Handler {
 
     HTTP_PROTOTYPE(CServerHandler)
 
-    void init();
-    void finish();
-
     void onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response);
 
     void onTimeout(const Pistache::Http::Request& request, Pistache::Http::ResponseWriter response);
@@ -21,6 +19,8 @@ class CServerHandler : public Pistache::Http::Handler {
   private:
     void        serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, int difficulty);
     void        proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
+    void        proxyPassInternal(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool async = false);
+    void        proxyPassAsync(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
     void        challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
     std::string fingerprintForRequest(const Pistache::Http::Request& req);
     std::string ipForRequest(const Pistache::Http::Request& req);
@@ -38,5 +38,18 @@ class CServerHandler : public Pistache::Http::Handler {
         std::string error   = "";
     };
 
-    Pistache::Http::Experimental::Client* m_client = nullptr;
+    struct SProxiedRequest {
+        SProxiedRequest(const Pistache::Http::Request& r, Pistache::Http::ResponseWriter& resp) : req(r), response(std::move(resp)) {
+            ;
+        }
+
+        Pistache::Http::Request        req;
+        Pistache::Http::ResponseWriter response;
+        std::thread                    requestThread;
+    };
+
+    struct {
+        std::vector<std::shared_ptr<SProxiedRequest>> queue;
+        std::shared_ptr<std::mutex>                   queueMutex = std::make_shared<std::mutex>();
+    } m_asyncProxyQueue;
 };
