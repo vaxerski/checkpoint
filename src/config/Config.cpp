@@ -12,11 +12,14 @@ static CConfig::eConfigIPAction strToAction(const std::string& s) {
     if (s.empty())
         return CConfig::IP_ACTION_NONE;
 
-    if (s == "ALLOW" || s == "allow" || s == "Allow")
+    std::string LC = s;
+    std::transform(LC.begin(), LC.end(), LC.begin(), ::tolower);
+
+    if (LC == "allow")
         return CConfig::IP_ACTION_ALLOW;
-    if (s == "Deny" || s == "deny" || s == "Deny")
+    if (LC == "deny")
         return CConfig::IP_ACTION_DENY;
-    if (s == "CHALLENGE" || s == "challenge" || s == "Challenge")
+    if (LC == "challenge")
         return CConfig::IP_ACTION_CHALLENGE;
 
     Debug::log(ERR, "Invalid action: {}, assuming NONE", s);
