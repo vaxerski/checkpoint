@@ -360,7 +360,7 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
 }
 
 void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
-    if (g_pConfig->m_config.experimental.async_proxy) {
+    if (g_pConfig->m_config.async_proxy) {
         proxyPassAsync(req, response);
         return;
     }

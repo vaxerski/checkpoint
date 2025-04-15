@@ -35,20 +35,17 @@ class CConfig {
     };
 
     struct SConfig {
-        int                         port              = 3001;
-        std::string                 forward_address   = "127.0.0.1:3000";
-        std::string                 data_dir          = "";
-        std::string                 html_dir          = "";
-        unsigned long int           max_request_size  = 10000000; // 10MB
-        bool                        git_host          = false;
-        unsigned long int           proxy_timeout_sec = 120; // 2 minutes
-        bool                        trace_logging     = false;
-        std::vector<SIPRangeConfig> ip_configs;
+        int                         port                         = 3001;
+        std::string                 forward_address              = "127.0.0.1:3000";
+        std::string                 data_dir                     = "";
+        std::string                 html_dir                     = "";
+        unsigned long int           max_request_size             = 10000000; // 10MB
+        bool                        git_host                     = false;
+        unsigned long int           proxy_timeout_sec            = 120; // 2 minutes
+        bool                        trace_logging                = false;
+        std::vector<SIPRangeConfig> ip_configs                   = {};
         int                         default_challenge_difficulty = 4;
-
-        struct {
-            bool async_proxy = false;
-        } experimental;
+        bool                        async_proxy                  = true;
     } m_config;
 
     struct {

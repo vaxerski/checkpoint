@@ -40,11 +40,8 @@
         }
     ],
 
-    // experimental settings. Use with caution!
-    "experimental": {
-        // If enabled, all requests to the proxy will create their own thread.
-        // this can increase the throughput of the proxy, especially when there are a lot of requests made
-        // all at once.
-        "async_proxy": false
-    }
+    // If enabled, all requests to the proxy will create their own thread.
+    // this can increase the throughput of the proxy, especially when there are a lot of requests made
+    // all at once.
+    "async_proxy": true
 }
