@@ -243,6 +243,15 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
             }
 
             if (matched) {
+                if (ic.difficulty != -1)
+                    challengeDifficulty = ic.difficulty;
+
+                // if we have an exclude regex and it matches the resource, skip this rule
+                if (ic.exclude_regex && RE2::FullMatch(req.resource(), *ic.exclude_regex)) {
+                    Debug::log(LOG, " | ip rule matched for {}, but resource is excluded.", REQUEST_IP);
+                    continue;
+                }
+
                 if (ic.action == CConfig::IP_ACTION_ALLOW) {
                     Debug::log(LOG, " | Action: PASS (ip rule matched for {})", REQUEST_IP);
                     proxyPass(req, response);
@@ -254,8 +263,6 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
                 }
 
                 // if it's challenge then it's default so just set the difficulty if applicable and proceed
-                if (ic.difficulty != -1)
-                    challengeDifficulty = ic.difficulty;
                 break;
             }
         }

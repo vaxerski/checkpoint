@@ -35,6 +35,7 @@ target_include_directories(checkpoint
 PRIVATE
    "./subprojects/pistache/include"
    "./subprojects/glaze/include"
+   "./subprojects/re2/include"
    "./subprojects/tinylates/include"
    "./subprojects/pistache/subprojects/cpp-httplib"
    "./subprojects/pistache/subprojects/hinnant-date/include"
@@ -43,5 +44,6 @@ target_link_libraries(checkpoint
     PkgConfig::deps
     pistache
     fmt
+    re2
     tinylates
 )

@@ -5,6 +5,8 @@
 #include "../helpers/FsUtils.hpp"
 #include "../GlobalState.hpp"
 
+#include "../debug/log.hpp"
+
 static CConfig::eConfigIPAction strToAction(const std::string& s) {
     // TODO: allow any case I'm lazy it's 1am
     if (s == "ALLOW" || s == "allow" || s == "Allow")
@@ -31,6 +33,14 @@ CConfig::CConfig() {
         SIPRangeConfigParsed parsed;
         parsed.action     = strToAction(ic.action);
         parsed.difficulty = ic.difficulty;
+
+        if (!ic.exclude_regex.empty()) {
+            parsed.exclude_regex = std::make_unique<re2::RE2>(ic.exclude_regex);
+            if (parsed.exclude_regex->error_code() != RE2::NoError) {
+                Debug::log(CRIT, "Regex \"{}\" failed to parse", ic.exclude_regex);
+                throw std::runtime_error("Failed to parse regex");
+            }
+        }
 
         for (const auto& ir : ic.ip_ranges) {
             parsed.ip_ranges.emplace_back(CIPRange(ir));

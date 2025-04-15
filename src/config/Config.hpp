@@ -3,6 +3,8 @@
 #include <string>
 #include <memory>
 
+#include <re2/re2.h>
+
 #include "IPRange.hpp"
 
 class CConfig {
@@ -18,13 +20,15 @@ class CConfig {
     struct SIPRangeConfig {
         std::string              action = "";
         std::vector<std::string> ip_ranges;
-        int                      difficulty = -1;
+        int                      difficulty    = -1;
+        std::string              exclude_regex = "";
     };
 
     struct SIPRangeConfigParsed {
-        eConfigIPAction       action = IP_ACTION_DENY;
-        std::vector<CIPRange> ip_ranges;
-        int                   difficulty = -1;
+        eConfigIPAction           action = IP_ACTION_DENY;
+        std::vector<CIPRange>     ip_ranges;
+        int                       difficulty = -1;
+        std::unique_ptr<re2::RE2> exclude_regex;
     };
 
     struct SConfig {
