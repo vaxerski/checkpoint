@@ -391,6 +391,12 @@ void CServerHandler::proxyPass(const Pistache::Http::Request& req, Pistache::Htt
             continue;
         }
 
+        if (HNAME == "Accept" && req.headers().getRaw(h->name()).value().contains("text/event-stream")) {
+            Debug::log(ERR, "FIXME: text/event-stream not supported via the proxy (it would have to be async)");
+            response.send(Pistache::Http::Code::Internal_Server_Error, "event-stream is not supported by checkpoint");
+            return;
+        }
+
         Debug::log(TRACE, "Header in: {}: {}", h->name(), req.headers().getRaw(h->name()).value());
         builder.header(h);
     }
