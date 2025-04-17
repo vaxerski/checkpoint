@@ -20,7 +20,6 @@ AI scrapers are everywhere. This will stop them. `robots.txt` won't.
 - Dynamic challenge amount (aka difficulty) based on traffic
 - Detection of token overuse
 - Better wait screen
-- Better git integration (it's quite rudimentary right now)
 
 ## Caveats
 If you are using this, it's almost certain search engines will stop indexing your site. Keep this in mind.
