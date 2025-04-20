@@ -1,12 +1,20 @@
 #include "FsUtils.hpp"
 
 #include <fstream>
+#include <filesystem>
 
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
 
 bool NFsUtils::isAbsolute(const std::string& sv) {
     return sv.size() > 0 && (*sv.begin() == '/' || *sv.begin() == '~');
+}
+
+bool NFsUtils::exists(const std::string& path) {
+    const std::string p = isAbsolute(path) ? path : g_pGlobalState->cwd + "/" + path;
+
+    std::error_code   ec;
+    return std::filesystem::exists(p) && !ec;
 }
 
 std::expected<std::string, std::string> NFsUtils::readFileAsString(const std::string& path) {

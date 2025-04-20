@@ -17,11 +17,12 @@
 constexpr const char* KEY_FILENAME = "privateKey.key";
 
 CCrypto::CCrypto() {
-    if (!std::filesystem::exists(NFsUtils::dataDir() + "/" + KEY_FILENAME)) {
+    std::error_code ec;
+    if (!std::filesystem::exists(NFsUtils::dataDir() + "/" + KEY_FILENAME, ec) || ec) {
         Debug::log(LOG, "No private key, generating one.");
         if (!genKey()) {
             Debug::log(CRIT, "Couldn't generate a key.");
-            throw std::runtime_error("Keygen failed");
+            Debug::die("Keygen failed");
         }
     } else {
         auto f = fopen((NFsUtils::dataDir() + "/" + KEY_FILENAME).c_str(), "r");
@@ -31,7 +32,7 @@ CCrypto::CCrypto() {
 
     if (!m_evpPkey) {
         Debug::log(CRIT, "Couldn't read the key.");
-        throw std::runtime_error("Key read openssl failed");
+        Debug::die("Key reading from openssl failed");
     }
 
     Debug::log(LOG, "Read private key");

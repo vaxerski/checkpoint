@@ -37,4 +37,12 @@ namespace Debug {
 
         std::cout << logMsg << "\n";
     }
+
+    template <typename... Args>
+    void die(fmt::format_string<Args...> fmt, Args&&... args) {
+        const std::string logMsg = fmt::vformat(fmt.get(), fmt::make_format_args(args...));
+
+        std::cout << "[ERR] " << logMsg << "\n";
+        exit(1);
+    }
 };

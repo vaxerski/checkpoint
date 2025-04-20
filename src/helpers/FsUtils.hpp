@@ -8,4 +8,5 @@ namespace NFsUtils {
     std::expected<std::string, std::string> readFileAsString(const std::string& path);
     std::string                             htmlPath(const std::string& resource);
     std::string                             dataDir();
+    bool                                    exists(const std::string& path);
 };

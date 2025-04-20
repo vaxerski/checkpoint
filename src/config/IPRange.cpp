@@ -3,13 +3,15 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include "../debug/log.hpp"
+
 CIP::CIP(const std::string& ip) {
     if (std::count(ip.begin(), ip.end(), '.') == 3)
         parseV4(ip);
     else if (std::count(ip.begin(), ip.end(), ':') >= 2)
         parseV6(ip);
     else
-        throw std::runtime_error("IP not valid");
+        Debug::die("Invalid IP: {}", ip);
 }
 
 void CIP::parseV4(const std::string& ip) {
@@ -32,7 +34,7 @@ void CIP::parseV4(const std::string& ip) {
         m_blocks.push_back(std::stoul(std::string{curr}));
 
         if (m_blocks.back() > 0xFF)
-            throw std::runtime_error("Invalid IPv4 byte");
+            Debug::die("Invalid ipv4 byte: {}", curr);
     }
 }
 
@@ -74,13 +76,13 @@ void CIP::parseV6(const std::string& ip) {
             m_blocks.push_back(std::stoul(std::string{curr}, nullptr, 16));
 
         if (m_blocks.back() > 0xFFFF)
-            throw std::runtime_error("Invalid IPv6 byte");
+            Debug::die("Invalid ipv6 byte: {}", curr);
     }
 }
 
 CIPRange::CIPRange(const std::string& range) {
     if (!range.contains('/'))
-        throw std::runtime_error("Range has no subnet");
+        Debug::die("IP range {} has no subnet", range);
 
     m_subnet = std::stoul(range.substr(range.find('/') + 1));
 

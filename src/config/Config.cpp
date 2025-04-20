@@ -31,7 +31,7 @@ CConfig::CConfig() {
         NFsUtils::readFileAsString(NFsUtils::isAbsolute(g_pGlobalState->configPath) ? g_pGlobalState->configPath : g_pGlobalState->cwd + "/" + g_pGlobalState->configPath).value());
 
     if (!json.has_value())
-        throw std::runtime_error("No config / bad config format");
+        Debug::die("No config or config has bad format");
 
     m_config = json.value();
 
@@ -46,7 +46,7 @@ CConfig::CConfig() {
             parsed.exclude_regex = std::make_unique<re2::RE2>(ic.exclude_regex);
             if (parsed.exclude_regex->error_code() != RE2::NoError) {
                 Debug::log(CRIT, "Regex \"{}\" failed to parse", ic.exclude_regex);
-                throw std::runtime_error("Failed to parse regex");
+                Debug::die("Failed to parse regex");
             }
         }
 

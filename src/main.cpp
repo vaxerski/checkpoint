@@ -17,6 +17,7 @@
 #include "headers/xrealip.hpp"
 
 #include "debug/log.hpp"
+#include "helpers/FsUtils.hpp"
 
 #include "core/Handler.hpp"
 #include "core/Crypto.hpp"
@@ -63,12 +64,15 @@ int main(int argc, char** argv, char** envp) {
     g_pConfig = std::make_unique<CConfig>();
 
     if (g_pConfig->m_config.html_dir.empty() || g_pConfig->m_config.data_dir.empty())
-        return 1;
+        Debug::die("No data / html dir");
+
+    if (!NFsUtils::exists(g_pConfig->m_config.html_dir) || !NFsUtils::exists(g_pConfig->m_config.data_dir))
+        Debug::die("data / html dir does not exist");
 
     sigset_t signals;
     if (sigemptyset(&signals) != 0 || sigaddset(&signals, SIGTERM) != 0 || sigaddset(&signals, SIGINT) != 0 || sigaddset(&signals, SIGQUIT) != 0 ||
         sigaddset(&signals, SIGPIPE) != 0 || sigaddset(&signals, SIGALRM) != 0 || sigprocmask(SIG_BLOCK, &signals, nullptr) != 0)
-        return 1;
+        Debug::die("Failed to set sighandlers");
 
     int               threads = 1;
     Pistache::Address address = {Pistache::Ipv4::any(), (uint16_t)g_pConfig->m_config.port};
