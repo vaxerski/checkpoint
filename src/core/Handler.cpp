@@ -350,11 +350,16 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
     const auto NONCE     = generateNonce();
     const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, difficulty);
 
+    auto hostDomain = req.headers().getRaw("Host").value();
+    if (hostDomain.contains(":"))
+            hostDomain = hostDomain.substr(0, hostDomain.find(':'));
+
     page.add("challengeDifficulty", CTinylatesProp(std::to_string(difficulty)));
     page.add("challengeNonce", CTinylatesProp(NONCE));
     page.add("challengeSignature", CTinylatesProp(CHALLENGE.signature()));
     page.add("challengeFingerprint", CTinylatesProp(CHALLENGE.fingerprint()));
     page.add("challengeTimestamp", CTinylatesProp(CHALLENGE.timestampAsString()));
+    page.add("hostDomain", CTinylatesProp(hostDomain));
     page.add("checkpointVersion", CTinylatesProp(CHECKPOINT_VERSION));
     response.send(Pistache::Http::Code::Ok, page.render().value_or("error"));
 }
