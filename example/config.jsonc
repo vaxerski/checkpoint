@@ -12,6 +12,22 @@
     // this address should be local (127.0.0.1). Other configurations are not supported.
     "forward_address": "127.0.0.1:3000",
 
+    // if you want to separate domains, you can set up proxy rules for Host -> dest
+    // if none match, forward_address will be used.
+    "proxy_rules": [
+        {
+            // If there is a port specified, it will have to match.
+            // If there is no port specified, it's any port.
+            "host": "myepic.domain.com:80",
+            "destination": "127.0.0.1:8080"
+        },
+        {
+            // Anything to myepic.domain.com that isn't myepic.domain.com:80 goes to 127.0.0.1:8081
+            "host": "myepic.domain.com",
+            "destination": "127.0.0.1:8081"
+        }
+    ],
+
     // max request size of 10MB
     "max_request_size": 10000000,
 

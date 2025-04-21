@@ -204,12 +204,9 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     if (g_pConfig->m_config.git_host) {
         // TODO: ratelimit this, probably.
 
-        const auto RES        = req.resource();
-        bool validGitResource =
-		RES.ends_with("/info/refs") || RES.ends_with("/info/packs") ||
-		RES.ends_with("HEAD") || RES.ends_with(".git") ||
-		RES.ends_with("/git-upload-pack") ||
-		RES.ends_with("/git-receive-pack");
+        const auto RES              = req.resource();
+        bool       validGitResource = RES.ends_with("/info/refs") || RES.ends_with("/info/packs") || RES.ends_with("HEAD") || RES.ends_with(".git") ||
+            RES.ends_with("/git-upload-pack") || RES.ends_with("/git-receive-pack");
 
         if (RES.contains("/objects/")) {
             const std::string_view repo = std::string_view{RES}.substr(0, RES.find("/objects/"));
@@ -253,8 +250,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
                         Debug::log(LOG, " | Action: CHALLENGE (rule)");
                         challengeDifficulty = ic.difficulty.value_or(g_pConfig->m_config.default_challenge_difficulty);
                         break;
-                    default:
-                        Debug::log(LOG, " | Invalid rule found (no action) skipping");
+                    default: Debug::log(LOG, " | Invalid rule found (no action) skipping");
                 }
 
                 if (ic.action == IP_ACTION_CHALLENGE)
@@ -369,9 +365,9 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
     const auto NONCE     = generateNonce();
     const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, difficulty);
 
-    auto hostDomain = req.headers().getRaw("Host").value();
+    auto       hostDomain = req.headers().getRaw("Host").value();
     if (hostDomain.contains(":"))
-            hostDomain = hostDomain.substr(0, hostDomain.find(':'));
+        hostDomain = hostDomain.substr(0, hostDomain.find(':'));
 
     page.add("challengeDifficulty", CTinylatesProp(std::to_string(difficulty)));
     page.add("challengeNonce", CTinylatesProp(NONCE));
@@ -417,14 +413,27 @@ void CServerHandler::proxyPassAsync(const Pistache::Http::Request& req, Pistache
 }
 
 void CServerHandler::proxyPassInternal(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool async) {
-    const std::string FORWARD_ADDR = g_pConfig->m_config.forward_address;
+    std::string forwardAddress = g_pConfig->m_config.forward_address;
+    const auto  HOST           = Pistache::Http::Header::header_cast<Pistache::Http::Header::Host>(req.headers().get("Host"));
 
-    Debug::log(TRACE, "Method ({}): Forwarding to {}", (uint32_t)req.method(), FORWARD_ADDR + req.resource());
+    for (const auto& R : g_pConfig->m_config.proxy_rules) {
+        if (R.host.contains(":")) {
+            if (R.host == HOST->host() + ":" + std::to_string(HOST->port())) {
+                forwardAddress = R.destination;
+                break;
+            }
+        } else if (HOST->host() == R.host) {
+            forwardAddress = R.destination;
+            break;
+        }
+    }
+
+    Debug::log(TRACE, "Method ({}): Forwarding to {}", (uint32_t)req.method(), forwardAddress + req.resource());
 
     Pistache::Http::Experimental::Client client;
     client.init(Pistache::Http::Experimental::Client::options().maxConnectionsPerHost(32).maxResponseSize(g_pConfig->m_config.max_request_size).threads(4));
 
-    auto builder = client.prepareRequest(FORWARD_ADDR + req.resource(), req.method());
+    auto builder = client.prepareRequest(forwardAddress + req.resource(), req.method());
     builder.body(req.body());
     for (auto it = req.cookies().begin(); it != req.cookies().end(); ++it) {
         builder.cookie(*it);

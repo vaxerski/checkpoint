@@ -19,6 +19,11 @@ class CConfig {
         std::string              resource   = "";
     };
 
+    struct SProxyRule {
+        std::string host        = "";
+        std::string destination = "";
+    };
+
     struct SConfig {
         int                      port                         = 3001;
         std::string              forward_address              = "127.0.0.1:3000";
@@ -31,6 +36,7 @@ class CConfig {
         std::vector<SConfigRule> rules                        = {};
         int                      default_challenge_difficulty = 4;
         bool                     async_proxy                  = true;
+        std::vector<SProxyRule>  proxy_rules;
     } m_config;
 
     struct {
