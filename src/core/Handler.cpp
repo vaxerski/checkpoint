@@ -22,6 +22,7 @@
 #include <fmt/format.h>
 #include <glaze/glaze.hpp>
 #include <openssl/evp.h>
+#include <magic.h>
 
 constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
 constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
@@ -194,7 +195,22 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
     if (isResourceCheckpoint(req.resource())) {
         // no directory traversal is possible when resource is checkpoint
-        response.send(Pistache::Http::Code::Ok, NFsUtils::readFileAsString(NFsUtils::htmlPath(req.resource().substr(req.resource().find("checkpoint/") + 11))).value());
+	auto resPath  = req.resource().substr(req.resource().find("checkpoint/") + 11);
+        auto fullPath = NFsUtils::htmlPath(resPath);
+
+	// attempt to handle mime
+        magic_t magic = magic_open(MAGIC_MIME_TYPE);
+        if (magic && magic_load(magic, nullptr) == 0) {
+            const char* m  = magic_file(magic, fullPath.c_str());
+	    auto mimeType = Pistache::Http::Mime::MediaType::fromString(
+                m ? std::string(m)
+                  : std::string("application/octet-stream"));
+            response.headers().add<Pistache::Http::Header::ContentType>(mimeType);
+            magic_close(magic);
+        }
+
+        auto body = NFsUtils::readFileAsString(fullPath).value();
+        response.send(Pistache::Http::Code::Ok, body);
         return;
     }
 
