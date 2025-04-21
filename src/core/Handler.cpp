@@ -210,7 +210,11 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         // TODO: ratelimit this, probably.
 
         const auto RES        = req.resource();
-        bool validGitResource = RES.ends_with("/info/refs") || RES.ends_with("/info/packs") || RES.ends_with("HEAD") || RES.ends_with(".git") || RES.ends_with("/git-upload-pack");
+        bool validGitResource =
+		RES.ends_with("/info/refs") || RES.ends_with("/info/packs") ||
+		RES.ends_with("HEAD") || RES.ends_with(".git") ||
+		RES.ends_with("/git-upload-pack") ||
+		RES.ends_with("/git-receive-pack");
 
         if (RES.contains("/objects/")) {
             const std::string_view repo = std::string_view{RES}.substr(0, RES.find("/objects/"));
