@@ -6,6 +6,7 @@
 #include "../headers/cfHeader.hpp"
 #include "../headers/xforwardfor.hpp"
 #include "../headers/gitProtocolHeader.hpp"
+#include "../headers/wwwAuthenticateHeader.hpp"
 #include "../headers/acceptLanguageHeader.hpp"
 #include "../headers/setCookieHeader.hpp"
 #include "../headers/xrealip.hpp"
@@ -130,6 +131,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     std::shared_ptr<const XForwardedForHeader>                 xForwardedForHeader;
     std::shared_ptr<const AuthorizationHeader>                 authHeader;
     std::shared_ptr<const GitProtocolHeader>                   gitProtocolHeader;
+    std::shared_ptr<const WwwAuthenticateHeader>               wwwAuthenticateHeader;
 
     try {
         hostHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::Host>(HEADERS.get("Host"));
@@ -175,6 +177,12 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         ; // silent ignore
     }
 
+    try {
+        wwwAuthenticateHeader = Pistache::Http::Header::header_cast<WwwAuthenticateHeader>(HEADERS.get("Www-Authenticate"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
     Debug::log(LOG, "New request: {}:{}{}", hostHeader->host(), hostHeader->port().toString(), req.resource());
 
     const auto REQUEST_IP = ipForRequest(req);
@@ -202,7 +210,11 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         // TODO: ratelimit this, probably.
 
         const auto RES        = req.resource();
-        bool validGitResource = RES.ends_with("/info/refs") || RES.ends_with("/info/packs") || RES.ends_with("HEAD") || RES.ends_with(".git") || RES.ends_with("/git-upload-pack");
+        bool validGitResource =
+		RES.ends_with("/info/refs") || RES.ends_with("/info/packs") ||
+		RES.ends_with("HEAD") || RES.ends_with(".git") ||
+		RES.ends_with("/git-upload-pack") ||
+		RES.ends_with("/git-receive-pack");
 
         if (RES.contains("/objects/")) {
             const std::string_view repo = std::string_view{RES}.substr(0, RES.find("/objects/"));
