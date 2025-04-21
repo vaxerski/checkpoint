@@ -93,7 +93,7 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
 }
 
 bool CServerHandler::isResourceCheckpoint(const std::string_view& res) {
-    return res == "/checkpoint/NotoSans.woff";
+    return res.starts_with("/checkpoint/");
 }
 
 std::string CServerHandler::ipForRequest(const Pistache::Http::Request& req) {
