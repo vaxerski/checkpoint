@@ -12,6 +12,7 @@
 #include "headers/xforwardfor.hpp"
 #include "headers/cfHeader.hpp"
 #include "headers/gitProtocolHeader.hpp"
+#include "headers/wwwAuthenticateHeader.hpp"
 #include "headers/acceptLanguageHeader.hpp"
 #include "headers/setCookieHeader.hpp"
 #include "headers/xrealip.hpp"
@@ -81,6 +82,7 @@ int main(int argc, char** argv, char** envp) {
     Pistache::Http::Header::Registry::instance().registerHeader<CFConnectingIPHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<XForwardedForHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<GitProtocolHeader>();
+    Pistache::Http::Header::Registry::instance().registerHeader<WwwAuthenticateHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<AcceptLanguageHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<SetCookieHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<XRealIPHeader>();

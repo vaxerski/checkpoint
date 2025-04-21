@@ -6,6 +6,7 @@
 #include "../headers/cfHeader.hpp"
 #include "../headers/xforwardfor.hpp"
 #include "../headers/gitProtocolHeader.hpp"
+#include "../headers/wwwAuthenticateHeader.hpp"
 #include "../headers/acceptLanguageHeader.hpp"
 #include "../headers/setCookieHeader.hpp"
 #include "../headers/xrealip.hpp"
@@ -130,6 +131,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
     std::shared_ptr<const XForwardedForHeader>                 xForwardedForHeader;
     std::shared_ptr<const AuthorizationHeader>                 authHeader;
     std::shared_ptr<const GitProtocolHeader>                   gitProtocolHeader;
+    std::shared_ptr<const WwwAuthenticateHeader>               wwwAuthenticateHeader;
 
     try {
         hostHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::Host>(HEADERS.get("Host"));
@@ -171,6 +173,12 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
     try {
         gitProtocolHeader = Pistache::Http::Header::header_cast<GitProtocolHeader>(HEADERS.get("Git-Protocol"));
+    } catch (std::exception& e) {
+        ; // silent ignore
+    }
+
+    try {
+        wwwAuthenticateHeader = Pistache::Http::Header::header_cast<WwwAuthenticateHeader>(HEADERS.get("Www-Authenticate"));
     } catch (std::exception& e) {
         ; // silent ignore
     }
