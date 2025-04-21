@@ -23,6 +23,7 @@
 #include <fmt/format.h>
 #include <glaze/glaze.hpp>
 #include <openssl/evp.h>
+#include <magic.h>
 
 constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
 constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
@@ -94,7 +95,7 @@ std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request&
 }
 
 bool CServerHandler::isResourceCheckpoint(const std::string_view& res) {
-    return res == "/checkpoint/NotoSans.woff";
+    return res.starts_with("/checkpoint/");
 }
 
 std::string CServerHandler::ipForRequest(const Pistache::Http::Request& req) {
@@ -200,12 +201,6 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         return;
     }
 
-    if (isResourceCheckpoint(req.resource())) {
-        // no directory traversal is possible when resource is checkpoint
-        response.send(Pistache::Http::Code::Ok, NFsUtils::readFileAsString(NFsUtils::htmlPath(req.resource().substr(req.resource().find("checkpoint/") + 11))).value());
-        return;
-    }
-
     if (g_pConfig->m_config.git_host) {
         // TODO: ratelimit this, probably.
 
@@ -288,6 +283,42 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
             Debug::log(LOG, " | Action: CHALLENGE (token invalid)");
     } else
         Debug::log(LOG, " | Action: CHALLENGE (no token)");
+
+    if (isResourceCheckpoint(req.resource())) {
+        static const auto HTML_ROOT = std::filesystem::canonical(NFsUtils::htmlPath("")).string();
+
+        const auto        RESOURCE_PATH = req.resource().substr(req.resource().find("checkpoint/") + 11);
+        const auto        PATH_RAW      = NFsUtils::htmlPath(RESOURCE_PATH);
+
+        std::error_code   ec;
+        const auto        PATH_ABSOLUTE = std::filesystem::canonical(PATH_RAW, ec);
+
+        if (ec) {
+            // bad resource
+            response.send(Pistache::Http::Code::Bad_Request, "Bad Request");
+            return;
+        }
+
+        if (!PATH_ABSOLUTE.string().starts_with(HTML_ROOT)) {
+            // directory traversal
+            response.send(Pistache::Http::Code::Bad_Request, "Bad Request");
+            return;
+        }
+
+        // attempt to handle mime
+        magic_t magic = magic_open(MAGIC_MIME_TYPE);
+        if (magic && magic_load(magic, nullptr) == 0) {
+            const char* m        = magic_file(magic, PATH_ABSOLUTE.c_str());
+            auto        mimeType = Pistache::Http::Mime::MediaType::fromString(m ? std::string(m) : std::string("application/octet-stream"));
+            response.headers().add<Pistache::Http::Header::ContentType>(mimeType);
+        }
+        if (magic)
+            magic_close(magic);
+
+        auto body = NFsUtils::readFileAsString(PATH_ABSOLUTE).value_or("");
+        response.send(body.empty() ? Pistache::Http::Code::Internal_Server_Error : Pistache::Http::Code::Ok, body);
+        return;
+    }
 
     serveStop(req, response, challengeDifficulty);
 }
