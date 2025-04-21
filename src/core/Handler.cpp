@@ -241,53 +241,29 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
     int challengeDifficulty = g_pConfig->m_config.default_challenge_difficulty;
 
-    if (!g_pConfig->m_parsedConfigDatas.ip_configs.empty()) {
+    if (!g_pConfig->m_parsedConfigDatas.configs.empty()) {
         const auto IP = CIP(REQUEST_IP);
-        for (const auto& ic : g_pConfig->m_parsedConfigDatas.ip_configs) {
-            bool matched = false;
-
-            for (const auto& ipr : ic.ip_ranges) {
-                if (!ipr.ipMatches(IP))
-                    continue;
-
-                matched = true;
-                break;
-            }
-
-            if (matched) {
-                if (ic.difficulty != -1)
-                    challengeDifficulty = ic.difficulty;
-
-                // if we have an exclude regex and it matches the resource, skip this rule
-                if (ic.exclude_regex && RE2::FullMatch(req.resource(), *ic.exclude_regex)) {
-                    if (ic.action_on_exclude == CConfig::IP_ACTION_ALLOW) {
-                        Debug::log(LOG, " | Action: PASS (ip rule matched for {}, excluded resource, exclude action is PASS)", REQUEST_IP);
+        for (const auto& ic : g_pConfig->m_parsedConfigDatas.configs) {
+            if (ic.passes(IP, userAgentHeader ? userAgentHeader->agent() : "", req.resource())) {
+                switch (ic.action) {
+                    case IP_ACTION_DENY:
+                        Debug::log(LOG, " | Action: DENY (rule)");
+                        response.send(Pistache::Http::Code::Forbidden, "Blocked by checkpoint");
+                        return;
+                    case IP_ACTION_ALLOW:
+                        Debug::log(LOG, " | Action: PASS (rule)");
                         proxyPass(req, response);
                         return;
-                    } else if (ic.action_on_exclude == CConfig::IP_ACTION_DENY) {
-                        Debug::log(LOG, " | Action: DENY (ip rule matched for {}, excluded resource, exclude action is DENY)", REQUEST_IP);
-                        response.send(Pistache::Http::Code::Forbidden, "Forbidden");
-                        return;
-                    } else if (ic.action_on_exclude == CConfig::IP_ACTION_CHALLENGE) {
-                        Debug::log(LOG, " | ip rule matched for {}, excluded resource, exclude action is CHALLENGE", REQUEST_IP);
+                    case IP_ACTION_CHALLENGE:
+                        Debug::log(LOG, " | Action: CHALLENGE (rule)");
+                        challengeDifficulty = ic.difficulty.value_or(g_pConfig->m_config.default_challenge_difficulty);
                         break;
-                    }
-                    Debug::log(LOG, " | ip rule matched for {}, excluded resource, exclude action is NONE", REQUEST_IP);
-                    continue;
+                    default:
+                        Debug::log(LOG, " | Invalid rule found (no action) skipping");
                 }
 
-                if (ic.action == CConfig::IP_ACTION_ALLOW) {
-                    Debug::log(LOG, " | Action: PASS (ip rule matched for {})", REQUEST_IP);
-                    proxyPass(req, response);
-                    return;
-                } else if (ic.action == CConfig::IP_ACTION_DENY) {
-                    Debug::log(LOG, " | Action: DENY (ip rule matched for {})", REQUEST_IP);
-                    response.send(Pistache::Http::Code::Forbidden, "Forbidden");
-                    return;
-                }
-
-                // if it's challenge then it's default so just set the difficulty if applicable and proceed
-                break;
+                if (ic.action == IP_ACTION_CHALLENGE)
+                    break;
             }
         }
     }
