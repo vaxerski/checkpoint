@@ -154,6 +154,19 @@
             transition: ease-in-out 0.1s;
         }
 
+        .link,
+        .link:visited,
+        .link:link,
+        .link:focus,
+        .link:active {
+            color: #c03940;
+            text-decoration: none;
+        }
+
+        .link:hover {
+            text-decoration: underline;
+        }
+
         @media (pointer:none),
         (pointer:coarse) {
             .big-icon {
@@ -198,10 +211,76 @@
 
         <noscript>
             <p class="text-description">
-                This website uses <a href="https://github.com/vaxerski/checkpoint">checkpoint</a> and requires javascript. Please enable javascript to complete the Proof of Work challenge.
+                This website uses <a class="link" href="https://github.com/vaxerski/checkpoint">checkpoint</a> and
+                requires
+                javascript to
+                automatically verify you are not a bot.<br /><br />
+                You seem to be running without Javascript enabled, and thus will have to do this manually.<br /><br />
+                Paste this command into your Linux terminal and provide the output below:
             </p>
 
+            <p class="code-block">
+                perl -MDigest::SHA=sha256_hex -e '$nonce="{{ tl:text challengeNonce }}"; $d={{ tl:text
+                challengeDifficulty
+                }}; for($i=0;; $i++){ $h=sha256_hex($nonce.$i); if(substr($h,0,$d) eq "0"x$d){ print "$i\n"; last }}'
+            </p>
+
+            <form action="/checkpoint/challengeNoJs" method="get">
+                <div>
+                    <label class="form-label" for="name">Enter the output: </label>
+                    <input class="form-input" type="text" name="solution" id="solution" required />
+                </div>
+                <input class="input-hidden" type="text" name="fingerprint" id="fingerprint"
+                    value="{{ tl:text challengeFingerprint }}" />
+                <input class="input-hidden" type="text" name="challenge" id="challenge"
+                    value="{{ tl:text challengeNonce }}" />
+                <input class="input-hidden" type="text" name="sig" id="sig" value="{{ tl:text challengeSignature }}" />
+                <input class="input-hidden" type="text" name="timestamp" id="timestamp"
+                    value="{{ tl:text challengeTimestamp }}" />
+                <input class="input-hidden" type="text" name="difficulty" id="difficulty"
+                    value="{{ tl:text challengeDifficulty }}" />
+                <input class="form-button" type="submit" value="Send" />
+            </form>
+
             <style>
+                .form-label {
+                    color: #fff;
+                    display: block;
+                    text-align: center;
+                }
+
+                .form-button {
+                    margin-left: 9.5rem;
+                    width: calc(100%-19rem);
+                    display: block;
+                    position: relative;
+                }
+
+                .form-input {
+                    margin-left: 9.5rem;
+                    width: calc(100%-19rem);
+                }
+
+                .code-block {
+                    background-color: #161616;
+                    color: #d9d9d9;
+                    border-radius: 1rem;
+                    font: "Monospace";
+                    margin: 1rem;
+                    width: calc(100% - 3rem);
+                    max-width: 100%;
+                    text-wrap: break-word;
+                    overflow-wrap: break-word;
+                    padding: 0.5rem;
+                    text-align: left;
+                    border: 1px solid #280d0e;
+                }
+
+                .input-hidden {
+                    visibility: hidden;
+                    position: absolute;
+                }
+
                 .require-js {
                     display: none;
                 }

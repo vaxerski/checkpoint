@@ -3,10 +3,14 @@
 #include <string>
 #include <chrono>
 
+#include <pistache/http.h>
+
 class CChallenge {
   public:
+    CChallenge() = default;
     CChallenge(const std::string& fingerprint, const std::string& challenge, int difficulty);
     CChallenge(const std::string& jsonResponse);
+    CChallenge(const Pistache::Http::Request& reqResponse);
 
     std::string fingerprint() const;
     std::string challenge() const;

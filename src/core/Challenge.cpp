@@ -46,6 +46,38 @@ CChallenge::CChallenge(const std::string& jsonResponse) {
     m_valid = true;
 }
 
+CChallenge::CChallenge(const Pistache::Http::Request& reqResponse) {
+    auto& q = reqResponse.query();
+
+    if (!q.has("solution")
+        || !q.has("fingerprint")
+        || !q.has("challenge")
+        || !q.has("timestamp")
+        || !q.has("sig")
+        || !q.has("difficulty"))
+        return;
+
+    m_challenge = q.get("challenge").value();
+    m_fingerprint = q.get("fingerprint").value();
+    m_sig = q.get("sig").value();
+
+    try {
+        m_issued = std::chrono::system_clock::time_point(std::chrono::seconds(std::stoull(q.get("timestamp").value())));
+    } catch (std::exception& e) { return; }
+
+    if (!g_pCrypto->verifySignature(getSigString(), m_sig))
+        return;
+
+    const auto SHA = g_pCrypto->sha256(m_challenge + q.get("solution").value());
+
+    for (size_t i = 0; i < m_difficulty; ++i) {
+        if (SHA.at(i) != '0')
+            return;
+    }
+
+    m_valid = true;
+}
+
 std::string CChallenge::fingerprint() const {
     return m_fingerprint;
 }

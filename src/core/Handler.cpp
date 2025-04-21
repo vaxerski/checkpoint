@@ -195,7 +195,15 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
     if (req.resource() == "/checkpoint/challenge") {
         if (req.method() == Pistache::Http::Method::Post)
-            challengeSubmitted(req, response);
+            challengeSubmitted(req, response, true);
+        else
+            response.send(Pistache::Http::Code::Bad_Request, "Bad Request");
+        return;
+    }
+
+    if (req.resource() == "/checkpoint/challengeNoJs") {
+        if (req.method() == Pistache::Http::Method::Get)
+            challengeSubmitted(req, response, false);
         else
             response.send(Pistache::Http::Code::Bad_Request, "Bad Request");
         return;
@@ -323,11 +331,15 @@ void CServerHandler::onTimeout(const Pistache::Http::Request& request, Pistache:
     response.send(Pistache::Http::Code::Request_Timeout, "Timeout").then([=](ssize_t) {}, PrintException());
 }
 
-void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response) {
+void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool js) {
     const auto JSON        = req.body();
     const auto FINGERPRINT = fingerprintForRequest(req);
 
-    const auto CHALLENGE = CChallenge(req.body());
+    CChallenge CHALLENGE;
+    if (!js)
+        CHALLENGE = CChallenge(req);
+    else
+        CHALLENGE = CChallenge(req.body());
 
     if (!CHALLENGE.valid()) {
         response.send(Pistache::Http::Code::Bad_Request, "Bad request");
@@ -353,7 +365,12 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
     response.headers().add(
         std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; Domain=" + hostDomain + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
 
-    response.send(Pistache::Http::Code::Ok, "Ok");
+    if (js)
+        response.send(Pistache::Http::Code::Ok, "Ok");
+    else {
+        response.headers().add<Pistache::Http::Header::Location>("/");
+        response.send(Pistache::Http::Code::Moved_Permanently, "");
+    }
 }
 
 void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, int difficulty) {
@@ -376,6 +393,8 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
     page.add("challengeTimestamp", CTinylatesProp(CHALLENGE.timestampAsString()));
     page.add("hostDomain", CTinylatesProp(hostDomain));
     page.add("checkpointVersion", CTinylatesProp(CHECKPOINT_VERSION));
+
+    response.setMime(Pistache::Http::Mime::MediaType("text/html"));
     response.send(Pistache::Http::Code::Ok, page.render().value_or("error"));
 }
 
