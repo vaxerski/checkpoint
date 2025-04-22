@@ -28,8 +28,6 @@
 constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
 constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
 
-//
-
 static std::string generateNonce() {
     static std::random_device       dev;
     std::mt19937                    engine(dev());
@@ -310,14 +308,12 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         }
 
         // attempt to handle mime
-        magic_t magic = magic_open(MAGIC_MIME_TYPE);
-        if (magic && magic_load(magic, nullptr) == 0) {
+        if (magic_t magic = magic_open(MAGIC_MIME_TYPE); magic_load(magic, nullptr) == 0) {
             const char* m        = magic_file(magic, PATH_ABSOLUTE.c_str());
             auto        mimeType = Pistache::Http::Mime::MediaType::fromString(m ? std::string(m) : std::string("application/octet-stream"));
             response.headers().add<Pistache::Http::Header::ContentType>(mimeType);
-        }
-        if (magic)
             magic_close(magic);
+        }
 
         auto body = NFsUtils::readFileAsString(PATH_ABSOLUTE).value_or("");
         response.send(body.empty() ? Pistache::Http::Code::Internal_Server_Error : Pistache::Http::Code::Ok, body);
