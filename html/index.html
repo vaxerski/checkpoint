@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<html>
 
 <head>
     <title>STOP! - Checkpoint</title>
@@ -220,9 +221,8 @@
             </p>
 
             <p class="code-block">
-                perl -MDigest::SHA=sha256_hex -e '$nonce="{{ tl:text challengeNonce }}"; $d={{ tl:text
-                challengeDifficulty
-                }}; for($i=0;; $i++){ $h=sha256_hex($nonce.$i); if(substr($h,0,$d) eq "0"x$d){ print "$i\n"; last }}'
+                perl -MDigest::SHA=sha256_hex -e '$n="{{ tl:text challengeNonce }}";$d={{ tl:text challengeDifficulty
+                }};for($i=0;;$i++){$h=sha256_hex($n.$i);if(substr($h,0,$d) eq "0"x$d){print "$i\n";last}}'
             </p>
 
             <form action="/checkpoint/challengeNoJs" method="get">
@@ -265,7 +265,7 @@
                     background-color: #161616;
                     color: #d9d9d9;
                     border-radius: 1rem;
-                    font: "Monospace";
+                    font-family: monospace;
                     margin: 1rem;
                     width: calc(100% - 3rem);
                     max-width: 100%;
@@ -431,3 +431,5 @@
     </script>
 
 </body>
+
+</html>
