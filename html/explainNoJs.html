@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Perl script - Checkpoint</title>
+</head>
+
+<body style="background-color: #0e0e0e; overflow-x: hidden;">
+
+    <style>
+        @font-face {
+            font-family: "Noto Sans";
+            src: url("/checkpoint/NotoSans.woff");
+        }
+
+        * {
+            font-family: "Noto Sans";
+        }
+
+        .middle-box {
+            display: block;
+            position: relative;
+            width: 50%;
+            height: auto;
+            margin-left: 25%;
+            background-color: #111111;
+            border-radius: 0.5rem;
+            border: 1px solid #280d0e;
+            margin-bottom: 2rem;
+            margin-top: 1rem;
+            padding: 1rem 0;
+        }
+
+        .subtext {
+            margin: 0;
+            padding: 0;
+            font-size: 1rem;
+            color: #d9d9d9;
+            width: calc(100%-6rem);
+            text-align: left;
+            margin-left: 2rem;
+        }
+
+        .code-block {
+            background-color: #161616;
+            color: #d9d9d9;
+            border-radius: 1rem;
+            font-family: monospace;
+            margin: 1rem;
+            width: calc(100% - 3rem);
+            max-width: 100%;
+            text-wrap: break-word;
+            overflow-wrap: break-word;
+            padding: 0.5rem;
+            text-align: left;
+            border: 1px solid #280d0e;
+        }
+    </style>
+
+    <div class="middle-box">
+        <p class="subtext">
+            If you have disabled javascript, you will be presented with a perl script to run.
+            Here is a short explanation of what it does.
+
+            A sample script looks like this:
+        </p>
+        <p class="code-block">
+            perl -MDigest::SHA=sha256_hex -e
+            '$n="58c80c8c2271cb295b47cc553736efea3633c5653365947c12cdcafd67085c585613208637ea9c680a121d2d1fda260c42ba620c47a6ddae406233b827986b5e689796e82f559de773fba4b257faffd5574a8aab0357831c32e8f62d6e72a9296add515f70c05b370c0092c941492ebc277449c1388b42c32153430c4cfa9525";$d=4;for($i=0;;$i++){$h=sha256_hex($n.$i);if(substr($h,0,$d)
+            eq "0"x$d){print "$i\n";last }}'
+        </p>
+
+        <p class="subtext">
+            Let's break it down a bit:
+        </p>
+
+        <p class="code-block">
+            perl<br/>
+            -MDigest::SHA=sha256_hex<br/>
+            -e<br/>
+            <br/>
+            '<br/>
+            $n="58c80c8c2271cb295b47cc553736efea3633c5653365947c12cdcafd67085c585613208637ea9c680a121d2d1fda260c42ba620c47a6ddae406233b827986b5e689796e82f559de773fba4b257faffd5574a8aab0357831c32e8f62d6e72a9296add515f70c05b370c0092c941492ebc277449c1388b42c32153430c4cfa9525";<br/>
+            $d=4;<br/>
+            for($i=0;;$i++){<br/>
+            $h=sha256_hex($n.$i);<br/>
+            if(substr($h,0,$d) eq "0"x$d){<br/>
+            print "$i\n";last<br/>
+            }<br/>
+            }<br/>
+            '
+        </p>
+
+        <p class="subtext">
+            Line by line:
+            <ul class="subtext">
+                <li>perl runs perl</li>
+                <li>-e means evaluate a string of code</li>
+                <li>$n="58c80c8c2..."; sets a string of text to the variable n</li>
+                <li>$d=4; sets the number 4 to the variable n</li>
+                <li>for($i=0;;$i++) runs a loop from zero upwards where the current iteration is stored in the variable i</li>
+                <li>$h=sha256_hex($n.$i) calculates a sha256 hash of a string which is made by concatenating variables n
+                    and i</li>
+                <li>if(substr($h,0,$d) eq "0"x$d) checks if the first d (in this case, 4) characters of the sha256 hash
+                    are zeroes. If so:</li>
+                <li>print "$i\n";last prints the iteration and exits the loop.</li>
+            </ul>
+        </p>
+        <p class="subtext">
+            Please note that if <b>ANYTHING</b> but the string in $n and number in $d are different, the script is
+            forged and not genuine!
+        </p>
+
+    </div>
+
+</body>
+
+</html>

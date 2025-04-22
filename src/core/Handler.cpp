@@ -295,7 +295,12 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         const auto        PATH_RAW      = NFsUtils::htmlPath(RESOURCE_PATH);
 
         std::error_code   ec;
-        const auto        PATH_ABSOLUTE = std::filesystem::canonical(PATH_RAW, ec);
+        auto        PATH_ABSOLUTE = std::filesystem::canonical(PATH_RAW, ec);
+
+        if (ec) {
+            // bad resource, try .html
+            PATH_ABSOLUTE = std::filesystem::canonical(PATH_RAW + ".html", ec);
+        }
 
         if (ec) {
             // bad resource
