@@ -312,8 +312,8 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
             const char* m        = magic_file(magic, PATH_ABSOLUTE.c_str());
             auto        mimeType = Pistache::Http::Mime::MediaType::fromString(m ? std::string(m) : std::string("application/octet-stream"));
             response.headers().add<Pistache::Http::Header::ContentType>(mimeType);
-            magic_close(magic);
         }
+        if(magic) magic_close(magic);
 
         auto body = NFsUtils::readFileAsString(PATH_ABSOLUTE).value_or("");
         response.send(body.empty() ? Pistache::Http::Code::Internal_Server_Error : Pistache::Http::Code::Ok, body);
