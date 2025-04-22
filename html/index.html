@@ -244,21 +244,47 @@
 
             <style>
                 .form-label {
-                    color: #fff;
+                    color: #d9d9d9;
                     display: block;
                     text-align: center;
-                }
-
-                .form-button {
-                    margin-left: 9.5rem;
-                    width: calc(100%-19rem);
-                    display: block;
-                    position: relative;
+                    margin-bottom: 0.5rem;
+                    font-size: 1rem;
                 }
 
                 .form-input {
-                    margin-left: 9.5rem;
-                    width: calc(100%-19rem);
+                    display: block;
+                    margin: 0 auto;
+                    width: 15rem;
+                    background-color: #161616;
+                    color: #d9d9d9;
+                    border: 1px solid #280d0e;
+                    border-radius: 0.3rem;
+                    padding: 0.5rem;
+                    font-size: 1rem;
+                    margin-bottom: 0.5rem;
+                    outline: none;
+                    transition: border-color 0.2s ease-in-out;
+                }
+
+                .form-input:focus {
+                    border-color: #692225;
+                }
+
+                .form-button {
+                    display: block;
+                    margin: 0 auto;
+                    background-color: #280d0e;
+                    color: #d9d9d9;
+                    border: none;
+                    border-radius: 0.3rem;
+                    padding: 0.5rem 1.5rem;
+                    font-size: 1rem;
+                    cursor: pointer;
+                    transition: background-color 0.2s ease-in-out;
+                }
+
+                .form-button:hover {
+                    background-color: #692225;
                 }
 
                 .code-block {
