@@ -28,6 +28,7 @@
 constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
 constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
 
+//
 static std::string generateNonce() {
     static std::random_device       dev;
     std::mt19937                    engine(dev());
