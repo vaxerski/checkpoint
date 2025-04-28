@@ -15,6 +15,7 @@ AI scrapers are everywhere. This will stop them. `robots.txt` won't.
 - Support for IP-Range based rules (both ipv4 and ipv6)
 - Support for async (multithreaded) request handling
 - Minimal. The waiting page is tiny and light on network usage.
+- Support for verbose traffic logging for later inspection or statistics
 
 ### Planned features
 - Dynamic challenge amount (aka difficulty) based on traffic

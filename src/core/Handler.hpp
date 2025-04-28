@@ -22,8 +22,6 @@ class CServerHandler : public Pistache::Http::Handler {
     void        proxyPassInternal(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool async = false);
     void        proxyPassAsync(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
     void        challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool js);
-    std::string fingerprintForRequest(const Pistache::Http::Request& req);
-    std::string ipForRequest(const Pistache::Http::Request& req);
 
     bool        isResourceCheckpoint(const std::string_view& res);
 

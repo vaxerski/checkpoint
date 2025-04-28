@@ -14,6 +14,8 @@
 #include "../GlobalState.hpp"
 #include "../config/Config.hpp"
 #include "../helpers/FsUtils.hpp"
+#include "../helpers/RequestUtils.hpp"
+#include "../logging/TrafficLogger.hpp"
 
 #include <filesystem>
 #include <random>
@@ -56,71 +58,8 @@ static std::string generateToken() {
     return ss.str();
 }
 
-std::string CServerHandler::fingerprintForRequest(const Pistache::Http::Request& req) {
-    const auto                                                    HEADERS = req.headers();
-    std::shared_ptr<const Pistache::Http::Header::AcceptEncoding> acceptEncodingHeader;
-    std::shared_ptr<const Pistache::Http::Header::UserAgent>      userAgentHeader;
-    std::shared_ptr<const AcceptLanguageHeader>                   languageHeader;
-
-    std::string                                                   input = "checkpoint-";
-
-    try {
-        acceptEncodingHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::AcceptEncoding>(HEADERS.get("Accept-Encoding"));
-    } catch (std::exception& e) {
-        ; // silent ignore
-    }
-
-    try {
-        languageHeader = Pistache::Http::Header::header_cast<AcceptLanguageHeader>(HEADERS.get("Accept-Language"));
-    } catch (std::exception& e) {
-        ; // silent ignore
-    }
-
-    try {
-        userAgentHeader = Pistache::Http::Header::header_cast<Pistache::Http::Header::UserAgent>(HEADERS.get("User-Agent"));
-    } catch (std::exception& e) {
-        ; // silent ignore
-    }
-
-    input += ipForRequest(req);
-    // TODO: those seem to change. Find better things to hash.
-    // if (acceptEncodingHeader)
-    //     input += HEADERS.getRaw("Accept-Encoding").value();
-    // if (languageHeader)
-    //     input += languageHeader->language();
-    if (userAgentHeader)
-        input += userAgentHeader->agent();
-
-    return g_pCrypto->sha256(input);
-}
-
 bool CServerHandler::isResourceCheckpoint(const std::string_view& res) {
     return res.starts_with("/checkpoint/");
-}
-
-std::string CServerHandler::ipForRequest(const Pistache::Http::Request& req) {
-    std::shared_ptr<const CFConnectingIPHeader> cfHeader;
-    std::shared_ptr<const XRealIPHeader>        xRealIPHeader;
-
-    try {
-        cfHeader = Pistache::Http::Header::header_cast<CFConnectingIPHeader>(req.headers().get("cf-connecting-ip"));
-    } catch (std::exception& e) {
-        ; // silent ignore
-    }
-
-    try {
-        xRealIPHeader = Pistache::Http::Header::header_cast<XRealIPHeader>(req.headers().get("X-Real-IP"));
-    } catch (std::exception& e) {
-        ; // silent ignore
-    }
-
-    if (cfHeader)
-        return cfHeader->ip();
-
-    if (xRealIPHeader)
-        return xRealIPHeader->ip();
-
-    return req.address().host();
 }
 
 void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response) {
@@ -186,7 +125,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
     Debug::log(LOG, "New request: {}:{}{}", hostHeader->host(), hostHeader->port().toString(), req.resource());
 
-    const auto REQUEST_IP = ipForRequest(req);
+    const auto REQUEST_IP = NRequestUtils::ipForRequest(req);
 
     Debug::log(LOG, " | Request author: IP {}, direct: {}", REQUEST_IP, req.address().host());
 
@@ -228,12 +167,14 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
                 Debug::log(TRACE, "Request looks like it is coming from git (UA + GP). Accepting.");
 
                 proxyPass(req, response);
+                g_pTrafficLogger->logTraffic(req, IP_ACTION_ALLOW);
                 return;
             } else if (userAgentHeader->agent().starts_with("git/")) {
                 Debug::log(LOG, " | Action: PASS (git)");
                 Debug::log(TRACE, "Request looks like it is coming from git (UA git). Accepting.");
 
                 proxyPass(req, response);
+                g_pTrafficLogger->logTraffic(req, IP_ACTION_ALLOW);
                 return;
             }
         }
@@ -249,10 +190,12 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
                     case IP_ACTION_DENY:
                         Debug::log(LOG, " | Action: DENY (rule)");
                         response.send(Pistache::Http::Code::Forbidden, "Blocked by checkpoint");
+                        g_pTrafficLogger->logTraffic(req, IP_ACTION_DENY);
                         return;
                     case IP_ACTION_ALLOW:
                         Debug::log(LOG, " | Action: PASS (rule)");
                         proxyPass(req, response);
+                        g_pTrafficLogger->logTraffic(req, IP_ACTION_ALLOW);
                         return;
                     case IP_ACTION_CHALLENGE:
                         Debug::log(LOG, " | Action: CHALLENGE (rule)");
@@ -273,8 +216,9 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         if (TOKEN.valid()) {
             const auto AGE = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() -
                 std::chrono::duration_cast<std::chrono::milliseconds>(TOKEN.issued().time_since_epoch()).count();
-            if (AGE <= TOKEN_MAX_AGE_MS && TOKEN.fingerprint() == fingerprintForRequest(req)) {
+            if (AGE <= TOKEN_MAX_AGE_MS && TOKEN.fingerprint() == NRequestUtils::fingerprintForRequest(req)) {
                 Debug::log(LOG, " | Action: PASS (token)");
+                g_pTrafficLogger->logTraffic(req, IP_ACTION_ALLOW);
                 proxyPass(req, response);
                 return;
             } else { // token has been used from a different IP or is expired. Nuke it.
@@ -329,6 +273,8 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         return;
     }
 
+    g_pTrafficLogger->logTraffic(req, IP_ACTION_CHALLENGE);
+
     serveStop(req, response, challengeDifficulty);
 }
 
@@ -338,7 +284,7 @@ void CServerHandler::onTimeout(const Pistache::Http::Request& request, Pistache:
 
 void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool js) {
     const auto JSON        = req.body();
-    const auto FINGERPRINT = fingerprintForRequest(req);
+    const auto FINGERPRINT = NRequestUtils::fingerprintForRequest(req);
 
     CChallenge CHALLENGE;
     if (!js)
@@ -385,7 +331,7 @@ void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Htt
     page.setTemplateRoot(PAGE_ROOT);
 
     const auto NONCE     = generateNonce();
-    const auto CHALLENGE = CChallenge(fingerprintForRequest(req), NONCE, difficulty);
+    const auto CHALLENGE = CChallenge(NRequestUtils::fingerprintForRequest(req), NONCE, difficulty);
 
     auto       hostDomain = req.headers().getRaw("Host").value();
     if (hostDomain.contains(":"))
