@@ -167,14 +167,14 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
                 Debug::log(TRACE, "Request looks like it is coming from git (UA + GP). Accepting.");
 
                 proxyPass(req, response);
-                g_pTrafficLogger->logTraffic(req, IP_ACTION_ALLOW);
+                g_pTrafficLogger->logTraffic(req, "PASS (git)");
                 return;
             } else if (userAgentHeader->agent().starts_with("git/")) {
                 Debug::log(LOG, " | Action: PASS (git)");
                 Debug::log(TRACE, "Request looks like it is coming from git (UA git). Accepting.");
 
                 proxyPass(req, response);
-                g_pTrafficLogger->logTraffic(req, IP_ACTION_ALLOW);
+                g_pTrafficLogger->logTraffic(req, "PASS (git)");
                 return;
             }
         }
@@ -190,12 +190,12 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
                     case IP_ACTION_DENY:
                         Debug::log(LOG, " | Action: DENY (rule)");
                         response.send(Pistache::Http::Code::Forbidden, "Blocked by checkpoint");
-                        g_pTrafficLogger->logTraffic(req, IP_ACTION_DENY);
+                        g_pTrafficLogger->logTraffic(req, "DENY (rule)");
                         return;
                     case IP_ACTION_ALLOW:
                         Debug::log(LOG, " | Action: PASS (rule)");
                         proxyPass(req, response);
-                        g_pTrafficLogger->logTraffic(req, IP_ACTION_ALLOW);
+                        g_pTrafficLogger->logTraffic(req, "PASS (rule)");
                         return;
                     case IP_ACTION_CHALLENGE:
                         Debug::log(LOG, " | Action: CHALLENGE (rule)");
@@ -218,7 +218,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
                 std::chrono::duration_cast<std::chrono::milliseconds>(TOKEN.issued().time_since_epoch()).count();
             if (AGE <= TOKEN_MAX_AGE_MS && TOKEN.fingerprint() == NRequestUtils::fingerprintForRequest(req)) {
                 Debug::log(LOG, " | Action: PASS (token)");
-                g_pTrafficLogger->logTraffic(req, IP_ACTION_ALLOW);
+                g_pTrafficLogger->logTraffic(req, "PASS (token)");
                 proxyPass(req, response);
                 return;
             } else { // token has been used from a different IP or is expired. Nuke it.
@@ -239,7 +239,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         const auto        PATH_RAW      = NFsUtils::htmlPath(RESOURCE_PATH);
 
         std::error_code   ec;
-        auto        PATH_ABSOLUTE = std::filesystem::canonical(PATH_RAW, ec);
+        auto              PATH_ABSOLUTE = std::filesystem::canonical(PATH_RAW, ec);
 
         if (ec) {
             // bad resource, try .html
@@ -249,12 +249,14 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         if (ec) {
             // bad resource
             response.send(Pistache::Http::Code::Bad_Request, "Bad Request");
+            g_pTrafficLogger->logTraffic(req, "BAD_CHECKPOINT_RESOURCE");
             return;
         }
 
         if (!PATH_ABSOLUTE.string().starts_with(HTML_ROOT)) {
             // directory traversal
             response.send(Pistache::Http::Code::Bad_Request, "Bad Request");
+            g_pTrafficLogger->logTraffic(req, "BAD_CHECKPOINT_RESOURCE");
             return;
         }
 
@@ -270,10 +272,11 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
 
         auto body = NFsUtils::readFileAsString(PATH_ABSOLUTE).value_or("");
         response.send(body.empty() ? Pistache::Http::Code::Internal_Server_Error : Pistache::Http::Code::Ok, body);
+        g_pTrafficLogger->logTraffic(req, "PASS (Checkpoint resource)");
         return;
     }
 
-    g_pTrafficLogger->logTraffic(req, IP_ACTION_CHALLENGE);
+    g_pTrafficLogger->logTraffic(req, "CHALLENGE");
 
     serveStop(req, response, challengeDifficulty);
 }
@@ -294,6 +297,7 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
 
     if (!CHALLENGE.valid()) {
         response.send(Pistache::Http::Code::Bad_Request, "Bad request");
+        g_pTrafficLogger->logTraffic(req, "CHALLENGE_FAIL");
         return;
     }
 
@@ -322,6 +326,8 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
         response.headers().add<Pistache::Http::Header::Location>("/");
         response.send(Pistache::Http::Code::Moved_Permanently, "");
     }
+
+    g_pTrafficLogger->logTraffic(req, "CHALLENGE_PASS");
 }
 
 void CServerHandler::serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, int difficulty) {

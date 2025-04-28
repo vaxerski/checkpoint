@@ -14,7 +14,7 @@ class CTrafficLogger {
     CTrafficLogger();
     ~CTrafficLogger();
 
-    void logTraffic(const Pistache::Http::Request& req, eConfigIPAction actionTaken);
+    void logTraffic(const Pistache::Http::Request& req, const char* actionTaken);
 
   private:
     enum eTrafficLoggerProps : uint8_t {
@@ -27,7 +27,7 @@ class CTrafficLogger {
     };
 
     std::vector<eTrafficLoggerProps> m_logSchema;
-    std::ofstream m_file;
+    std::ofstream                    m_file;
 };
 
 inline std::unique_ptr<CTrafficLogger> g_pTrafficLogger;

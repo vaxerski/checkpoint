@@ -74,18 +74,7 @@ static std::string sanitize(const std::string& s) {
     return cpy;
 }
 
-static const char* actionToString(eConfigIPAction a) {
-    switch (a) {
-        case IP_ACTION_CHALLENGE: return "CHALLENGE";
-        case IP_ACTION_ALLOW: return "ALLOW";
-        case IP_ACTION_DENY: return "DENY";
-        case IP_ACTION_NONE: return "NONE";
-    }
-
-    return "ERROR";
-}
-
-void CTrafficLogger::logTraffic(const Pistache::Http::Request& req, eConfigIPAction actionTaken) {
+void CTrafficLogger::logTraffic(const Pistache::Http::Request& req, const char* actionTaken) {
     if (!g_pConfig->m_config.logging.log_traffic)
         return;
 
@@ -125,7 +114,7 @@ void CTrafficLogger::logTraffic(const Pistache::Http::Request& req, eConfigIPAct
             }
 
             case TRAFFIC_ACTION: {
-                ss << fmt::format("{},", actionToString(actionTaken));
+                ss << fmt::format("{},", actionTaken);
                 break;
             }
         }

@@ -17,13 +17,13 @@ class CServerHandler : public Pistache::Http::Handler {
     void onTimeout(const Pistache::Http::Request& request, Pistache::Http::ResponseWriter response);
 
   private:
-    void        serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, int difficulty);
-    void        proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
-    void        proxyPassInternal(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool async = false);
-    void        proxyPassAsync(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
-    void        challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool js);
+    void serveStop(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, int difficulty);
+    void proxyPass(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
+    void proxyPassInternal(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool async = false);
+    void proxyPassAsync(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response);
+    void challengeSubmitted(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter& response, bool js);
 
-    bool        isResourceCheckpoint(const std::string_view& res);
+    bool isResourceCheckpoint(const std::string_view& res);
 
     struct SChallengeResponse {
         std::string       challenge;

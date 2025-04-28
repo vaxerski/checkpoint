@@ -49,17 +49,12 @@ CChallenge::CChallenge(const std::string& jsonResponse) {
 CChallenge::CChallenge(const Pistache::Http::Request& reqResponse) {
     auto& q = reqResponse.query();
 
-    if (!q.has("solution")
-        || !q.has("fingerprint")
-        || !q.has("challenge")
-        || !q.has("timestamp")
-        || !q.has("sig")
-        || !q.has("difficulty"))
+    if (!q.has("solution") || !q.has("fingerprint") || !q.has("challenge") || !q.has("timestamp") || !q.has("sig") || !q.has("difficulty"))
         return;
 
-    m_challenge = q.get("challenge").value();
+    m_challenge   = q.get("challenge").value();
     m_fingerprint = q.get("fingerprint").value();
-    m_sig = q.get("sig").value();
+    m_sig         = q.get("sig").value();
 
     try {
         m_issued = std::chrono::system_clock::time_point(std::chrono::seconds(std::stoull(q.get("timestamp").value())));
