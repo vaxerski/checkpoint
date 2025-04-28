@@ -69,5 +69,17 @@
     "async_proxy": true,
 
     // If enabled, specific requests that look like git HTTP(s) clones will be let through.
-    "git_host": false
+    "git_host": false,
+
+    // Traffic logging to a .csv file
+    "logging": {
+        "log_traffic": false,
+
+        // This is a sample schema with all supported fields
+        // Please keep in mind your local legal regulations, as IPs under GDPR are considered personal data.
+        "traffic_log_schema": "epoch,ip,domain,resource,useragent,action",
+
+        // Where to save the logfile. Each run will continue appending to this file. It may grow HUGE! No automatic pruning / compression is done.
+        "traffic_log_file": "./traffic.csv"
+    }
 }

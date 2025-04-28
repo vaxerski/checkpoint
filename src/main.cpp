@@ -25,6 +25,8 @@
 
 #include "config/Config.hpp"
 
+#include "logging/TrafficLogger.hpp"
+
 #include "GlobalState.hpp"
 
 #include <signal.h>
@@ -87,7 +89,8 @@ int main(int argc, char** argv, char** envp) {
     Pistache::Http::Header::Registry::instance().registerHeader<SetCookieHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<XRealIPHeader>();
 
-    g_pCrypto = std::make_unique<CCrypto>();
+    g_pCrypto        = std::make_unique<CCrypto>();
+    g_pTrafficLogger = std::make_unique<CTrafficLogger>();
 
     auto endpoint = std::make_unique<Pistache::Http::Endpoint>(address);
     auto opts     = Pistache::Http::Endpoint::options().threads(threads).flags(Pistache::Tcp::Options::ReuseAddr | Pistache::Tcp::Options::ReusePort);

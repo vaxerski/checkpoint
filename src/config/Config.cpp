@@ -38,7 +38,7 @@ CConfig::CConfig() {
     for (const auto& ic : m_config.rules) {
         CConfigRule rule;
         rule.action = strToAction(ic.action);
-        
+
         if (ic.difficulty != -1)
             rule.difficulty = ic.difficulty;
 

@@ -37,6 +37,12 @@ class CConfig {
         int                      default_challenge_difficulty = 4;
         bool                     async_proxy                  = true;
         std::vector<SProxyRule>  proxy_rules;
+
+        struct {
+            bool        log_traffic = false;
+            std::string traffic_log_schema;
+            std::string traffic_log_file;
+        } logging;
     } m_config;
 
     struct {
