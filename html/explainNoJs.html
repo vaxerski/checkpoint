@@ -59,10 +59,10 @@
 
     <div class="middle-box">
         <p class="subtext">
-            If you have disabled javascript, you will be presented with a perl script to run.
+            If you have disabled javascript, you will be presented with a Perl or Powershell script to run.
             Here is a short explanation of what it does.
 
-            A sample script looks like this:
+            A sample Perl script looks like this:
         </p>
         <p class="code-block">
             perl -MDigest::SHA=sha256_hex -e
@@ -71,7 +71,14 @@
         </p>
 
         <p class="subtext">
-            Let's break it down a bit:
+            A sample Powershell script looks like this:
+        </p>
+        <p class="code-block">
+             $n="58c80c8c2271cb295b47cc553736efea3633c5653365947c12cdcafd67085c585613208637ea9c680a121d2d1fda260c42ba620c47a6ddae406233b827986b5e689796e82f559de773fba4b257faffd5574a8aab0357831c32e8f62d6e72a9296add515f70c05b370c0092c941492ebc277449c1388b42c32153430c4cfa9525";$d=4;for($i=0;;$i++){if(((New-Object System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($n+$i))|%{$_.ToString("x2")}) -join "" -match "^[0]{$d}"){Write-Output $i;break}}
+        </p>
+
+        <p class="subtext">
+            Let's break the Perl one down a bit:
         </p>
 
         <p class="code-block">
@@ -106,6 +113,37 @@
                 <li>print "$i\n";last prints the iteration and exits the loop.</li>
             </ul>
         </p>
+        <p class="subtext">
+            Let's break the Powershell one down a bit:
+        </p>
+        <p class="code-block">
+            $n="58c80c8c2271cb295b47cc553736efea3633c5653365947c12cdcafd67085c585613208637ea9c680a121d2d1fda260c42ba620c47a6ddae406233b827986b5e689796e82f559de773fba4b257faffd5574a8aab0357831c32e8f62d6e72a9296add515f70c05b370c0092c941492ebc277449c1388b42c32153430c4cfa9525";<br/>
+            $d=4;<br/>
+            for($i=0;;$i++){<br/>
+            if(((New-Object System.Security.Cryptography.SHA256Managed)<br/>
+            .ComputeHash([System.Text.Encoding]::UTF8.GetBytes($n+$i))<br/>
+            |%{$_.ToString("x2")}) -join "" -match "^[0]{$d}"){<br/>
+            Write-Output $i;<br/>
+            break<br/>
+            }<br/>
+            }<br/>
+        </p>
+
+        <p class="subtext">
+            Line by line:
+            <ul class="subtext">
+                <li>$n="58c80c8c2..."; sets a string of text to the variable n</li>
+                <li>$d=4; sets the number 4 to the variable d</li>
+                <li>for($i=0;;$i++) runs a loop from zero upwards where the current iteration is stored in the variable i</li>
+                <li>(New-Object System.Security.Cryptography.SHA256Managed).ComputeHash(...) calculates a sha256 hash of a string</li>
+                <li>[System.Text.Encoding]::UTF8.GetBytes($n+$i) turns the concatenation of variables n and i into bytes</li>
+                <li>|%{$_.ToString("x2")} converts each byte of the hash into a 2-digit hexadecimal string</li>
+                <li>-join "" joins all the hex strings together into one string</li>
+                <li>-match "^[0]{$d}" checks if the first d (in this case, 4) characters of the sha256 hash are zeroes. If so:</li>
+                <li>Write-Output $i;break prints the iteration and exits the loop.</li>
+            </ul>
+        </p>
+
         <p class="subtext">
             Please note that if <b>ANYTHING</b> but the string in $n and number in $d are different, the script is
             forged and not genuine!
