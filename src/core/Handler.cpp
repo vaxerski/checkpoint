@@ -27,8 +27,7 @@
 #include <openssl/evp.h>
 #include <magic.h>
 
-constexpr const uint64_t TOKEN_MAX_AGE_MS  = 1000 * 60 * 60; // 1hr
-constexpr const char*    TOKEN_COOKIE_NAME = "checkpoint-token";
+constexpr const char* TOKEN_COOKIE_NAME = "checkpoint-token";
 
 //
 
@@ -216,13 +215,13 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         if (TOKEN.valid()) {
             const auto AGE = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() -
                 std::chrono::duration_cast<std::chrono::milliseconds>(TOKEN.issued().time_since_epoch()).count();
-            if (AGE <= TOKEN_MAX_AGE_MS && TOKEN.fingerprint() == NRequestUtils::fingerprintForRequest(req)) {
+            if (AGE <= g_pConfig->m_config.token_valid_for && TOKEN.fingerprint() == NRequestUtils::fingerprintForRequest(req)) {
                 Debug::log(LOG, " | Action: PASS (token)");
                 g_pTrafficLogger->logTraffic(req, "PASS (token)");
                 proxyPass(req, response);
                 return;
             } else { // token has been used from a different IP or is expired. Nuke it.
-                if (AGE > TOKEN_MAX_AGE_MS)
+                if (AGE > g_pConfig->m_config.token_valid_for)
                     Debug::log(LOG, " | Action: CHALLENGE (token expired)");
                 else
                     Debug::log(LOG, " | Action: CHALLENGE (token fingerprint mismatch)");
