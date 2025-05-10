@@ -35,7 +35,7 @@ class CConfig {
         bool                     trace_logging                = false;
         std::vector<SConfigRule> rules                        = {};
         int                      default_challenge_difficulty = 4;
-        int                      token_valid_for              = 60;
+        int                      token_valid_for              = 3600;
         bool                     async_proxy                  = true;
         std::vector<SProxyRule>  proxy_rules;
 

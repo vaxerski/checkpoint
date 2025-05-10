@@ -83,6 +83,6 @@
         "traffic_log_file": "./traffic.csv"
     },
 
-    // how long the token (solved challenge) should be valid for before showing a new challenge, in minutes
-    "token_valid_for": 60 // 1 hour
+    // how long the token (solved challenge) should be valid for before showing a new challenge, in seconds
+    "token_valid_for": 3600 // 1 hour
 }
