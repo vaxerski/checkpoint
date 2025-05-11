@@ -317,7 +317,7 @@ void CServerHandler::challengeSubmitted(const Pistache::Http::Request& req, Pist
     }
 
     response.headers().add(
-        std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; Domain=" + hostDomain + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
+        std::make_shared<SetCookieHeader>(std::string{TOKEN_COOKIE_NAME} + "=" + TOKEN.tokenCookie() + "; Domain=" + hostDomain + "; Max-Age=" + std::to_string(g_pConfig->m_config.token_valid_for) + "; HttpOnly; Path=/; Secure; SameSite=Lax"));
 
     if (js)
         response.send(Pistache::Http::Code::Ok, "Ok");
