@@ -215,7 +215,7 @@ void CServerHandler::onRequest(const Pistache::Http::Request& req, Pistache::Htt
         if (TOKEN.valid()) {
             const auto AGE = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() -
                 std::chrono::duration_cast<std::chrono::milliseconds>(TOKEN.issued().time_since_epoch()).count();
-            if (AGE <= g_pConfig->m_config.token_valid_for * 1000 && TOKEN.fingerprint() == NRequestUtils::fingerprintForRequest(req)) {
+            if (AGE <= g_pConfig->m_config.token_valid_for * 1000 && (TOKEN.fingerprint() == NRequestUtils::fingerprintForRequest(req) || g_pConfig->m_config.ignore_fingerprinting)) {
                 Debug::log(LOG, " | Action: PASS (token)");
                 g_pTrafficLogger->logTraffic(req, "PASS (token)");
                 proxyPass(req, response);
