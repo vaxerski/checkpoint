@@ -36,6 +36,7 @@ class CConfig {
         std::vector<SConfigRule> rules                        = {};
         int                      default_challenge_difficulty = 4;
         int                      token_valid_for              = 3600;
+        bool                     ignore_fingerprinting        = false;
         bool                     async_proxy                  = true;
         std::vector<SProxyRule>  proxy_rules;
 

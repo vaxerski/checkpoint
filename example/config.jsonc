@@ -71,6 +71,10 @@
     // If enabled, specific requests that look like git HTTP(s) clones will be let through.
     "git_host": false,
 
+    // If enabled, fingerprinting is ignored and any IP will be able to use
+    // the cached token as long as it is still valid.
+    "ignore_fingerprinting": false,
+
     // Traffic logging to a .csv file
     "logging": {
         "log_traffic": false,
