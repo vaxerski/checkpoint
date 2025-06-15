@@ -16,6 +16,7 @@
 #include "headers/acceptLanguageHeader.hpp"
 #include "headers/setCookieHeader.hpp"
 #include "headers/xrealip.hpp"
+#include "headers/csrfHeader.hpp"
 
 #include "debug/log.hpp"
 #include "helpers/FsUtils.hpp"
@@ -88,6 +89,7 @@ int main(int argc, char** argv, char** envp) {
     Pistache::Http::Header::Registry::instance().registerHeader<AcceptLanguageHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<SetCookieHeader>();
     Pistache::Http::Header::Registry::instance().registerHeader<XRealIPHeader>();
+    Pistache::Http::Header::Registry::instance().registerHeader<XCSRFTokenHeader>();
 
     g_pCrypto        = std::make_unique<CCrypto>();
     g_pTrafficLogger = std::make_unique<CTrafficLogger>();
