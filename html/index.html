@@ -212,17 +212,20 @@
 
         <noscript>
             <p class="text-description">
-                This website uses&nbsp;<a class="link" href="https://github.com/vaxerski/checkpoint">checkpoint</a>&nbsp;and
-                requires
-                javascript to
-                automatically verify you are not a bot.<br /><br />
-                You seem to be running without Javascript enabled, and thus will have to do this manually.<br /><br />
+                This website uses <a class="link" href="https://github.com/vaxerski/checkpoint">checkpoint</a> and
+                requires JavaScript to automatically verify you are not a bot.<br /><br />
+                You seem to be running without JavaScript enabled, and thus will have to do this manually.<br /><br />
                 Paste this command into your Linux terminal and provide the output below:
             </p>
 
+            <p class="text-description">Linux:</p>
             <p class="code-block">
                 perl -MDigest::SHA=sha256_hex -e '$n="{{ tl:text challengeNonce }}";$d={{ tl:text challengeDifficulty
                 }};for($i=0;;$i++){$h=sha256_hex($n.$i);if(substr($h,0,$d) eq "0"x$d){print "$i\n";last}}'
+            </p>
+            <p class="text-description">Powershell:</p>
+            <p class="code-block">
+                $n="{{ tl:text challengeNonce }}";$d={{ tl:text challengeDifficulty }};for($i=0;;$i++){if(((New-Object System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($n+$i))|%{$_.ToString("x2")}) -join "" -match "^[0]{$d}"){Write-Output $i;break}}
             </p>
 
             <form action="/checkpoint/challengeNoJs" method="get">
